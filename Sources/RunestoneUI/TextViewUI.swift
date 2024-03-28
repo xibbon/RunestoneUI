@@ -45,13 +45,17 @@ public struct TextViewUI: UIViewRepresentable {
     
     public func updateUIView(_ uiView: Runestone.TextView, context: Context) {
         if let language {
-            uiView.setLanguageMode(TreeSitterLanguageMode (language: language))
+            if language !== context.coordinator.language {
+                uiView.setLanguageMode(TreeSitterLanguageMode (language: language))
+                context.coordinator.language = language
+            }
         }
         uiView.text = text
         
     }
     
     public class TextViewCoordinator: TextViewDelegate {
+        var language: TreeSitterLanguage? = nil
         var text: Binding<String>
         
         init (text: Binding<String>) {
