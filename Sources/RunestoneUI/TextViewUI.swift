@@ -7,6 +7,7 @@ import UIKit
 
 public struct TextViewUI: UIViewRepresentable {
     @Binding var text: String
+    @Environment(\.language) var language: TreeSitterLanguage?
     
     public init (text: Binding<String>) {
         self._text = text
@@ -43,7 +44,11 @@ public struct TextViewUI: UIViewRepresentable {
     }
     
     public func updateUIView(_ uiView: Runestone.TextView, context: Context) {
+        if let language {
+            uiView.setLanguageMode(TreeSitterLanguageMode (language: language))
+        }
         uiView.text = text
+        
     }
     
     public class TextViewCoordinator: TextViewDelegate {
@@ -59,3 +64,19 @@ public struct TextViewUI: UIViewRepresentable {
     }
 }
 
+public struct LanguageKey : EnvironmentKey {
+    public static let defaultValue: TreeSitterLanguage? = nil
+}
+
+extension EnvironmentValues {
+    public var language: TreeSitterLanguage? {
+        get { self[LanguageKey.self] }
+        set { self[LanguageKey.self] = newValue }
+    }
+}
+
+extension View {
+    public func language(_ language: TreeSitterLanguage) -> some View {
+        environment(\.language, language)
+    }
+}
