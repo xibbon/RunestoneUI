@@ -9,15 +9,15 @@ import UIKit
 public struct TextViewUI: UIViewRepresentable {
     @Environment(\.language) var language: TreeSitterLanguage?
     @Binding var text: String
-    let onChange: (_ content: String, _ location: CGRect?, _ selectionRange: (TextLocation,TextLocation))->()
+    let onChange: (_ textView: TextView) -> ()
 
     /// Creates a TextViewUI with the contents of the specified string, and it will invoke the onChange method when changes to it happen
     /// - Parameters:
     ///  - text: The text to edit
-    ///  - onChange: callback that is invoked when the text changes, it includes the complete text, the location in the screen where the cursor sits, and the selection range (the last componet is the location of the cursor)
-    public init (text: Binding<String>, onChange: @escaping (_ content: String, _ location: CGRect?, _ selectionRange: (TextLocation,TextLocation))->()) {
+    ///  - onChange: callback that is invoked when the text changes and includes a handle to the TextView, so you can extract data as needed
+    public init (text: Binding<String>, onChange: ((_ textView: TextView) ->())? = nil) {
         self._text = text
-        self.onChange = onChange
+        self.onChange = onChange ?? { x in }
     }
     
     public func makeUIView(context: Context) -> TextView {
@@ -64,30 +64,31 @@ public struct TextViewUI: UIViewRepresentable {
     public class TextViewCoordinator: TextViewDelegate {
         var language: TreeSitterLanguage? = nil
         var text: Binding<String>
-        let onChange: (_ content: String, _ location: CGRect?, _ selectionRange: (TextLocation,TextLocation))->()
+        let onChange: (_ textView: TextView)->()
 
-        init (text: Binding<String>, onChange: @escaping (_ content: String, _ location: CGRect?, _ selectionRange: (TextLocation,TextLocation))->()) {
+        init (text: Binding<String>, onChange: @escaping (_ textView: TextView)->()) {
             self.text = text
             self.onChange = onChange
         }
         
         public func textViewDidChange(_ textView: TextView) {
-            let newText = textView.text
-            text.wrappedValue = newText
-            var region: CGRect? = nil
+            text.wrappedValue = textView.text
+            onChange (textView)
             
-            if let r = textView.selectedTextRange {
-                region = textView.firstRect(for: r)
-            }
-            let range = textView.selectedRange
-            let start = textView.textLocation(at: range.location)
-            let end = textView.textLocation(at: range.location + range.length)
-            guard let start, let end else {
-                // If this happened, something very wrong went on
-                print ("Start and end were not resolved out of the \(range) returned by TextView on textViewChange")
-                return
-            }
-            onChange (newText, region, (start, end))
+//            var region: CGRect? = nil
+//            
+//            if let r = textView.selectedTextRange {
+//                region = textView.firstRect(for: r)
+//            }
+//            let range = textView.selectedRange
+//            let start = textView.textLocation(at: range.location)
+//            let end = textView.textLocation(at: range.location + range.length)
+//            guard let start, let end else {
+//                // If this happened, something very wrong went on
+//                print ("Start and end were not resolved out of the \(range) returned by TextView on textViewChange")
+//                return
+//            }
+//            onChange (textView, newText, region, (start, end))
         }
         
         public func textView(_ textView: TextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
