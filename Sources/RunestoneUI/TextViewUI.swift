@@ -8,6 +8,11 @@ import UIKit
 
 public struct TextViewUI: UIViewRepresentable {
     @Environment(\.language) var language: TreeSitterLanguage?
+    @Environment(\.lineHeightMultiplier) var lineHeightMultiplier: Double
+    @Environment(\.showSpaces) var showSpaces: Bool
+    @Environment(\.showTabs) var showTabs: Bool
+    @Environment(\.showLineNumbers) var showLineNumbers: Bool
+    
     @Binding var text: String
     let onChange: (_ textView: TextView) -> ()
 
@@ -27,14 +32,16 @@ public struct TextViewUI: UIViewRepresentable {
 
         // Configuration options
         tv.backgroundColor = UIColor.systemBackground
-        tv.showLineNumbers = true
-        //tv.lineHeightMultiplier = 1.2
+        tv.showLineNumbers = context.coordinator.showLineNumbers
+        tv.lineHeightMultiplier = context.coordinator.lineHeightMultiplier
+        let showSpaces = context.coordinator.showSpaces
+        tv.showSpaces = showSpaces
+        tv.showNonBreakingSpaces = showSpaces
+        tv.showSoftLineBreaks = showSpaces
+        tv.showLineBreaks = showSpaces
+        tv.showTabs = context.coordinator.showTabs
+
         //tv.kern = 0.3
-        //tv.showSpaces = true
-        //tv.showNonBreakingSpaces = true
-        //tv.showTabs = true
-        //tv.showLineBreaks = true
-        //tv.showSoftLineBreaks = true
         tv.isLineWrappingEnabled = false
         //tv.showPageGuide = true
         //tv.pageGuideColumn = 80
@@ -50,19 +57,37 @@ public struct TextViewUI: UIViewRepresentable {
         return TextViewCoordinator(text: $text, onChange: onChange)
     }
     
-    public func updateUIView(_ uiView: Runestone.TextView, context: Context) {
+    public func updateUIView(_ tv: Runestone.TextView, context: Context) {
+        let coordinator = context.coordinator
         if let language {
-            if language !== context.coordinator.language {
-                uiView.setLanguageMode(TreeSitterLanguageMode (language: language))
-                context.coordinator.language = language
+            if language !== coordinator.language {
+                tv.setLanguageMode(TreeSitterLanguageMode (language: language))
+                coordinator.language = language
             }
         }
-        uiView.text = text
+        coordinator.lineHeightMultiplier = lineHeightMultiplier
+        tv.lineHeightMultiplier = lineHeightMultiplier
+        tv.text = text
+    
+        coordinator.showSpaces = showSpaces
+        tv.showSpaces = showSpaces
+        tv.showNonBreakingSpaces = showSpaces
+        tv.showSoftLineBreaks = showSpaces
+        tv.showLineBreaks = showSpaces
+    
+        coordinator.showTabs = showTabs
+        tv.showTabs = showTabs
         
+        coordinator.showLineNumbers = showLineNumbers
+        tv.showLineNumbers = showLineNumbers
     }
     
     public class TextViewCoordinator: TextViewDelegate {
         var language: TreeSitterLanguage? = nil
+        var lineHeightMultiplier: Double = 1.0
+        var showTabs: Bool = false
+        var showSpaces: Bool = false
+        var showLineNumbers: Bool = true
         var text: Binding<String>
         let onChange: (_ textView: TextView)->()
 
@@ -75,6 +100,7 @@ public struct TextViewUI: UIViewRepresentable {
             text.wrappedValue = textView.text
             onChange (textView)
             
+            // This is the code that you would need to extract location information:
 //            var region: CGRect? = nil
 //            
 //            if let r = textView.selectedTextRange {
@@ -103,15 +129,59 @@ public struct LanguageKey : EnvironmentKey {
     public static let defaultValue: TreeSitterLanguage? = nil
 }
 
+public struct LineHeightMultiplierKey : EnvironmentKey {
+    public static let defaultValue: Double = 1.0
+}
+
+public struct ShowLineNumbersKey: EnvironmentKey {
+    public static let defaultValue: Bool = true
+}
+
+public struct ShowTabsKey: EnvironmentKey {
+    public static let defaultValue: Bool = false
+}
+
+public struct ShowSpacesKey: EnvironmentKey {
+    public static let defaultValue: Bool = false
+}
+
 extension EnvironmentValues {
     public var language: TreeSitterLanguage? {
         get { self[LanguageKey.self] }
         set { self[LanguageKey.self] = newValue }
     }
+    public var lineHeightMultiplier: Double {
+        get { self[LineHeightMultiplierKey.self] }
+        set { self[LineHeightMultiplierKey.self] = newValue }
+    }
+    public var showSpaces: Bool {
+        get { self[ShowSpacesKey.self] }
+        set { self[ShowSpacesKey.self] = newValue }
+    }
+    public var showTabs: Bool {
+        get { self[ShowTabsKey.self] }
+        set { self[ShowTabsKey.self] = newValue }
+    }
+    public var showLineNumbers: Bool {
+        get { self[ShowLineNumbersKey.self] }
+        set { self[ShowLineNumbersKey.self] = newValue }
+    }
 }
 
 extension View {
-    public func language(_ language: TreeSitterLanguage) -> some View {
+    public func language(_ language: TreeSitterLanguage?) -> some View {
         environment(\.language, language)
+    }
+    public func lineHeightMultiplier (_ value: Double) -> some View {
+        environment(\.lineHeightMultiplier, value)
+    }
+    public func showSpaces (_ value: Bool) -> some View {
+        environment(\.showSpaces, value)
+    }
+    public func showTabs (_ value: Bool) -> some View {
+        environment(\.showTabs, value)
+    }
+    public func showLineNumbers (_ value: Bool) -> some View {
+        environment(\.showLineNumbers, value)
     }
 }
