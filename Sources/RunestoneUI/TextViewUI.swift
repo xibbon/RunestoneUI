@@ -12,6 +12,7 @@ public struct TextViewUI: UIViewRepresentable {
     @Environment(\.showSpaces) var showSpaces: Bool
     @Environment(\.showTabs) var showTabs: Bool
     @Environment(\.showLineNumbers) var showLineNumbers: Bool
+    @Environment(\.characterPairs) var characterPairs: [CharacterPair]
     
     @Binding var text: String
     let onChange: (_ textView: TextView) -> ()
@@ -49,6 +50,7 @@ public struct TextViewUI: UIViewRepresentable {
         tv.autocapitalizationType = .none
         tv.smartQuotesType = .no
         tv.smartDashesType = .no
+        tv.characterPairs = characterPairs
         
         return tv
     }
@@ -80,11 +82,13 @@ public struct TextViewUI: UIViewRepresentable {
         
         coordinator.showLineNumbers = showLineNumbers
         tv.showLineNumbers = showLineNumbers
+        
+        tv.characterPairs = characterPairs
     }
     
     public class TextViewCoordinator: TextViewDelegate {
         var language: TreeSitterLanguage? = nil
-        var lineHeightMultiplier: Double = 1.0
+        var lineHeightMultiplier: Double = 1.3
         var showTabs: Bool = false
         var showSpaces: Bool = false
         var showLineNumbers: Bool = true
@@ -145,6 +149,10 @@ public struct ShowSpacesKey: EnvironmentKey {
     public static let defaultValue: Bool = false
 }
 
+public struct CharacterPairsKey: EnvironmentKey {
+    public static let defaultValue: [CharacterPair] = []
+}
+
 extension EnvironmentValues {
     public var language: TreeSitterLanguage? {
         get { self[LanguageKey.self] }
@@ -166,6 +174,10 @@ extension EnvironmentValues {
         get { self[ShowLineNumbersKey.self] }
         set { self[ShowLineNumbersKey.self] = newValue }
     }
+    public var characterPairs: [CharacterPair] {
+        get { self[CharacterPairsKey.self] }
+        set { self[CharacterPairsKey.self] = newValue }
+    }
 }
 
 extension View {
@@ -183,5 +195,8 @@ extension View {
     }
     public func showLineNumbers (_ value: Bool) -> some View {
         environment(\.showLineNumbers, value)
+    }
+    public func characterPairs (_ value: [CharacterPair]) -> some View {
+        environment(\.characterPairs, value)
     }
 }
