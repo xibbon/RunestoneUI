@@ -15,15 +15,17 @@ public struct TextViewUI: UIViewRepresentable {
     @Environment(\.characterPairs) var characterPairs: [CharacterPair]
     
     @Binding var text: String
+    @Binding var gotoRequest: Int?
     let onChange: (_ textView: TextView) -> ()
 
     /// Creates a TextViewUI with the contents of the specified string, and it will invoke the onChange method when changes to it happen
     /// - Parameters:
     ///  - text: The text to edit
     ///  - onChange: callback that is invoked when the text changes and includes a handle to the TextView, so you can extract data as needed
-    public init (text: Binding<String>, onChange: ((_ textView: TextView) ->())? = nil) {
+    public init (text: Binding<String>, onChange: ((_ textView: TextView) ->())? = nil, gotoRequest: Binding<Int?>) {
         self._text = text
         self.onChange = onChange ?? { x in }
+        self._gotoRequest = gotoRequest
     }
     
     public func makeUIView(context: Context) -> TextView {
@@ -56,7 +58,7 @@ public struct TextViewUI: UIViewRepresentable {
     }
  
     public func makeCoordinator() -> TextViewCoordinator {
-        return TextViewCoordinator(text: $text, onChange: onChange)
+        return TextViewCoordinator(text: $text, onChange: onChange, gotoRequest: $gotoRequest)
     }
     
     public func updateUIView(_ tv: Runestone.TextView, context: Context) {
@@ -84,6 +86,11 @@ public struct TextViewUI: UIViewRepresentable {
         tv.showLineNumbers = showLineNumbers
         
         tv.characterPairs = characterPairs
+        
+        if let line = gotoRequest {
+            tv.goToLine(line)
+            self.gotoRequest = nil
+        }
     }
     
     public class TextViewCoordinator: TextViewDelegate {
@@ -94,10 +101,12 @@ public struct TextViewUI: UIViewRepresentable {
         var showLineNumbers: Bool = true
         var text: Binding<String>
         let onChange: (_ textView: TextView)->()
-
-        init (text: Binding<String>, onChange: @escaping (_ textView: TextView)->()) {
+        let gotoRequest: Binding<Int?>
+        
+        init (text: Binding<String>, onChange: @escaping (_ textView: TextView)->(), gotoRequest: Binding<Int?>) {
             self.text = text
             self.onChange = onChange
+            self.gotoRequest = gotoRequest
         }
         
         public func textViewDidChange(_ textView: TextView) {
