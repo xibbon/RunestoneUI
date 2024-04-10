@@ -6,6 +6,8 @@ import SwiftUI
 import UIKit
 @_exported import Runestone
 
+/// SwiftUI wrapper for RuneStone's TextView
+///
 public struct TextViewUI: UIViewRepresentable {
     @Environment(\.language) var language: TreeSitterLanguage?
     @Environment(\.lineHeightMultiplier) var lineHeightMultiplier: Double
@@ -13,22 +15,26 @@ public struct TextViewUI: UIViewRepresentable {
     @Environment(\.showTabs) var showTabs: Bool
     @Environment(\.showLineNumbers) var showLineNumbers: Bool
     @Environment(\.characterPairs) var characterPairs: [CharacterPair]
+    @Environment(\.findInteraction) var findInteraction: Bool
     
     @Binding var text: String
-    @Binding var gotoRequest: Int?
+    let commands: TextViewCommands
+    
     let onChange: (_ textView: TextView) -> ()
 
     /// Creates a TextViewUI with the contents of the specified string, and it will invoke the onChange method when changes to it happen
     /// - Parameters:
     ///  - text: The text to edit
     ///  - onChange: callback that is invoked when the text changes and includes a handle to the TextView, so you can extract data as needed
-    public init (text: Binding<String>, onChange: ((_ textView: TextView) ->())? = nil, gotoRequest: Binding<Int?>) {
+    public init (text: Binding<String>, onChange: ((_ textView: TextView) ->())? = nil, commands: TextViewCommands) {
+        print ("Creating textView")
         self._text = text
         self.onChange = onChange ?? { x in }
-        self._gotoRequest = gotoRequest
+        self.commands = commands
     }
     
     public func makeUIView(context: Context) -> TextView {
+        print ("Created TextView")
         let tv = TextView ()
         tv.text = text
         tv.editorDelegate = context.coordinator
@@ -58,7 +64,7 @@ public struct TextViewUI: UIViewRepresentable {
     }
  
     public func makeCoordinator() -> TextViewCoordinator {
-        return TextViewCoordinator(text: $text, onChange: onChange, gotoRequest: $gotoRequest)
+        return TextViewCoordinator(text: $text, onChange: onChange, commands: commands)
     }
     
     public func updateUIView(_ tv: Runestone.TextView, context: Context) {
@@ -72,6 +78,7 @@ public struct TextViewUI: UIViewRepresentable {
         coordinator.lineHeightMultiplier = lineHeightMultiplier
         tv.lineHeightMultiplier = lineHeightMultiplier
         tv.text = text
+        coordinator.commands.textView = tv
     
         coordinator.showSpaces = showSpaces
         tv.showSpaces = showSpaces
@@ -86,11 +93,9 @@ public struct TextViewUI: UIViewRepresentable {
         tv.showLineNumbers = showLineNumbers
         
         tv.characterPairs = characterPairs
-        
-        if let line = gotoRequest {
-            tv.goToLine(line)
-            self.gotoRequest = nil
-        }
+        coordinator.findInteraction = findInteraction
+        tv.isFindInteractionEnabled = findInteraction
+        coordinator.commands.textView = tv
     }
     
     public class TextViewCoordinator: TextViewDelegate {
@@ -99,14 +104,14 @@ public struct TextViewUI: UIViewRepresentable {
         var showTabs: Bool = false
         var showSpaces: Bool = false
         var showLineNumbers: Bool = true
+        var findInteraction: Bool = true
         var text: Binding<String>
         let onChange: (_ textView: TextView)->()
-        let gotoRequest: Binding<Int?>
-        
-        init (text: Binding<String>, onChange: @escaping (_ textView: TextView)->(), gotoRequest: Binding<Int?>) {
+        let commands: TextViewCommands
+        init (text: Binding<String>, onChange: @escaping (_ textView: TextView)->(), commands: TextViewCommands) {
             self.text = text
             self.onChange = onChange
-            self.gotoRequest = gotoRequest
+            self.commands = commands
         }
         
         public func textViewDidChange(_ textView: TextView) {
@@ -162,6 +167,10 @@ public struct CharacterPairsKey: EnvironmentKey {
     public static let defaultValue: [CharacterPair] = []
 }
 
+public struct FindInteractionKey: EnvironmentKey {
+    public static let defaultValue: Bool = true
+}
+
 extension EnvironmentValues {
     public var language: TreeSitterLanguage? {
         get { self[LanguageKey.self] }
@@ -187,25 +196,81 @@ extension EnvironmentValues {
         get { self[CharacterPairsKey.self] }
         set { self[CharacterPairsKey.self] = newValue }
     }
+    public var findInteraction: Bool {
+        get { self[FindInteractionKey.self] }
+        set { self[FindInteractionKey.self] = newValue }
+    }
 }
 
 extension View {
+    /// Used to choose the indentation and coloring tree sitter for the text in the UI
     public func language(_ language: TreeSitterLanguage?) -> some View {
         environment(\.language, language)
     }
+    
+    /// The line-height is multiplied with the value.
     public func lineHeightMultiplier (_ value: Double) -> some View {
         environment(\.lineHeightMultiplier, value)
     }
+    
+    /// The text view renders invisible spaces in RuneStone
     public func showSpaces (_ value: Bool) -> some View {
         environment(\.showSpaces, value)
     }
+    
+    /// The text view renders invisible tabs when enabled. The tabsSymbol is used to render tabs.
     public func showTabs (_ value: Bool) -> some View {
         environment(\.showTabs, value)
     }
+    
+    /// Enable to show line numbers in the gutter.
     public func showLineNumbers (_ value: Bool) -> some View {
         environment(\.showLineNumbers, value)
     }
+    
+    /// Character pairs are used by the editor to automatically insert a trailing character when the user types the leading character.
+    /// Common usages of this includes the " character to surround strings and { } to surround a scope.
     public func characterPairs (_ value: [CharacterPair]) -> some View {
         environment(\.characterPairs, value)
+    }
+    
+    /// Controls whether the built-in find-interaction UI is shown on the TextViewUI, defaults to true.
+    /// If you set this to false, you can not request the find UI from it.
+    public func findInteraction (_ enable: Bool) -> some View {
+        environment(\.findInteraction, enable)
+    }
+}
+
+/// Create an instance of this variable to trigger various actions on the TextView externally
+/// you pass a binding to this value, and then call methods of this to trigger certain actions.
+public class TextViewCommands {
+    static var total = 0
+    var id: Int
+    public init () {
+        id = TextViewCommands.total
+        print ("Created Command \(id)")
+        TextViewCommands.total+=1
+    }
+    
+    fileprivate var textView: TextView? {
+        didSet {
+            print ("Setting textView on \(id)")
+        }
+    }
+    
+    /// Requests that the TextView navigates to the specified line
+    public func requestGoto(line: Int) {
+        textView?.goToLine(line)
+    }
+
+    /// Requests that the find UI is shown
+    public func requestFind() {
+        textView?.findInteraction?.presentFindNavigator(showingReplace: false)
+    }
+    
+    /// Requests that the find and replace UI is shown
+    public func requestFindAndReplace() {
+        print ("In \(id) requesting and have \(textView)")
+        textView?.findInteraction?.presentFindNavigator(showingReplace: true)
     }
 }
