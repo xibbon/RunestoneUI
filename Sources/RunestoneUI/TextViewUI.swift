@@ -59,6 +59,10 @@ public struct TextViewUI: UIViewRepresentable {
         tv.smartQuotesType = .no
         tv.smartDashesType = .no
         tv.characterPairs = characterPairs
+        #if os(iOS)
+            
+            tv.inputAccessoryView = KeyboardToolsView(textView: tv)
+        #endif
         
         return tv
     }
@@ -273,4 +277,175 @@ public class TextViewCommands {
         print ("In \(id) requesting and have \(textView)")
         textView?.findInteraction?.presentFindNavigator(showingReplace: true)
     }
+}
+
+public final class KeyboardToolsView: UIInputView {
+
+    private weak var textView: TextView?
+
+    public init(textView: TextView) {
+        self.textView = textView
+        let frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 44)
+        super.init(frame: frame, inputViewStyle: .keyboard)
+        setupView()
+        NotificationCenter.default.addObserver(self, selector: #selector(updateUndoRedoButtonStates), name: .NSUndoManagerCheckpoint, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(updateUndoRedoButtonStates), name: .NSUndoManagerDidUndoChange, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(updateUndoRedoButtonStates), name: .NSUndoManagerDidRedoChange, object: nil)
+    }
+
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    lazy var buttons = [KeyboardAccessoryButton(title: "Tab Left", icon: "arrow.left.to.line",
+                                                additionalOptions: [KeyboardAccessoryButton(title: "Tab Right", icon: "arrow.right.to.line", isAdditionalOption: true, action: {
+                                                self.textView?.shiftRight()
+                                            }),
+                                            KeyboardAccessoryButton(title: "Undo", icon: "arrow.uturn.backward", isAdditionalOption: true, action: {
+                                                self.textView?.undoManager?.undo()
+                                            }),
+                                            KeyboardAccessoryButton(title: "Redo", icon: "arrow.uturn.forward", isAdditionalOption: true, action: {
+                                                self.textView?.undoManager?.redo()
+                                            }),
+                                            KeyboardAccessoryButton(title: "Dismiss",icon: "keyboard.chevron.compact.down", isAdditionalOption: true, action: {
+                                                    self.textView?.resignFirstResponder()
+                                                })], action: {
+                                                self.textView?.shiftLeft()
+                                            })
+                
+                        
+                       
+    ]
+
+    private func setupView() {
+        let c = UIHostingController(rootView: KeyboardToolsUI(buttons: buttons))
+        let view = c.view!
+        view.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(view)
+        updateUndoRedoButtonStates()
+        NSLayoutConstraint.activate([
+            view.leadingAnchor.constraint(equalTo: leadingAnchor),
+            view.topAnchor.constraint(equalTo: topAnchor),
+            view.bottomAnchor.constraint(equalTo: bottomAnchor),
+            view.trailingAnchor.constraint(equalTo: trailingAnchor)
+        ])
+    }
+}
+
+private extension KeyboardToolsView {
+    @objc private func updateUndoRedoButtonStates() {
+        let undoManager = textView?.undoManager
+//        undoButton.isEnabled = undoManager?.canUndo ?? false
+//        redoButton.isEnabled = undoManager?.canRedo ?? false
+    }
+}
+
+struct KeyboardToolsUI: View {
+    @State var showextraOptions: Bool = false
+    let buttons: [KeyboardAccessoryButton]
+    var body: some View {
+        HStack {
+            ForEach(buttons) { button in
+                KeyboardToolsButton(buttonModel: button)
+                
+                
+            }
+            
+        
+        }
+        .padding(.horizontal)
+        .frame(maxWidth: .infinity)
+    }
+}
+
+
+struct KeyboardToolsButton: View {
+    @State var showextraOptions: Bool = false
+    let buttonModel: KeyboardAccessoryButton
+    @State var location: CGPoint?
+    var isSelected: Bool = false
+    
+    var body: some View {
+        Image(systemName: buttonModel.icon)
+        .frame(width: 125, height: 35)
+        .background(isSelected ? Color(uiColor: .systemGray2) : Color(uiColor: .systemGray5))
+        .cornerRadius(5)
+        .overlay(alignment: .topTrailing, content: {
+            if buttonModel.additionalOptions.count > 0 {
+                Circle()
+                    .foregroundColor(Color(uiColor: .systemGray))
+                    .frame(width: 6, height: 6)
+                    .padding(6)
+            }
+        })
+        .onTapGesture {
+            print("Touch")
+            showextraOptions = false
+        }
+        .simultaneousGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged({ value in
+                            self.location = value.location
+                        })
+                        .onEnded({ _ in
+                            showextraOptions = false
+                        })
+                        
+                )
+        .simultaneousGesture(LongPressGesture (minimumDuration: 0.6).onEnded ( { isEnded in
+            showextraOptions = true
+            }))
+        
+        .overlay(
+            AdditionalOptionsGrid(buttons: buttonModel.additionalOptions, location: location)
+                        .background(Color(uiColor: .systemBackground))
+                        .cornerRadius(5)
+                        .frame(width: CGFloat(buttonModel.additionalOptions.count  * 120 + 60), height: CGFloat((buttonModel.additionalOptions.count / 6) * 80 ))
+                        .offset(x: 0, y: -20)
+                        .opacity(showextraOptions ? 1 : 0)
+            ,
+            alignment: .top)
+        .coordinateSpace(name: "Custom")
+    }
+}
+
+struct AdditionalOptionsGrid: View {
+    let size: CGFloat = 125
+    let buttons: [KeyboardAccessoryButton]
+    let location: CGPoint?
+    @State var selected: KeyboardAccessoryButton? = nil
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: size, maximum: size))], content: {
+            ForEach(buttons) { button in
+                GeometryReader { gr in
+                    KeyboardToolsButton(buttonModel: button, isSelected: button.id == selected?.id)
+                        .onChange(of: location) { oldValue, newValue in
+                            guard let location else { return }
+                            let targetFrame = gr.frame(in: .named("Custom"))
+                            print("TargetFrame", targetFrame)
+                            print("Location", location)
+                            if targetFrame.contains(location) {
+                                self.selected = button
+                            }
+                        }
+                }
+                .frame(height: 35)
+            }
+        })
+    }
+}
+
+struct KeyboardAccessoryButton: Identifiable {
+    var id: String {
+        return title
+    }
+    let title: String
+    let icon: String
+    var isAdditionalOption: Bool = false
+    var additionalOptions: [KeyboardAccessoryButton] = []
+    let action: () ->()
 }
