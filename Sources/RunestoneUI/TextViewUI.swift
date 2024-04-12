@@ -27,7 +27,6 @@ public struct TextViewUI: UIViewRepresentable {
     ///  - text: The text to edit
     ///  - onChange: callback that is invoked when the text changes and includes a handle to the TextView, so you can extract data as needed
     public init (text: Binding<String>, onChange: ((_ textView: TextView) ->())? = nil, commands: TextViewCommands) {
-        print ("Creating textView")
         self._text = text
         self.onChange = onChange ?? { x in }
         self.commands = commands
@@ -140,7 +139,7 @@ public struct TextViewUI: UIViewRepresentable {
         }
         
         public func textView(_ textView: TextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
-            print ("Range is: loc: \(range.location) len: \(range.length)")
+            //print ("Range is: loc: \(range.location) len: \(range.length)")
             
             return true
         }
@@ -261,15 +260,11 @@ public class TextViewCommands {
     var id: Int
     public init () {
         id = TextViewCommands.total
-        print ("Created Command \(id)")
         TextViewCommands.total+=1
     }
     
-    fileprivate var textView: TextView? {
-        didSet {
-            print ("Setting textView on \(id)")
-        }
-    }
+    /// The textview that provides the backing services
+    public var textView: TextView?
     
     /// Requests that the TextView navigates to the specified line
     public func requestGoto(line: Int) {
@@ -283,8 +278,32 @@ public class TextViewCommands {
     
     /// Requests that the find and replace UI is shown
     public func requestFindAndReplace() {
-        print ("In \(id) requesting and have \(textView)")
         textView?.findInteraction?.presentFindNavigator(showingReplace: true)
+    }
+    
+    /// Returns the position in a document that is closest to a specified point.
+    public func closestPosition (to point: CGPoint) -> UITextPosition? {
+        return textView?.closestPosition(to: point)
+    }
+    
+    /// Returns the range between two text positions.
+    public func textRange(from: UITextPosition, to: UITextPosition) -> UITextRange? {
+        return textView?.textRange(from: from, to: to)
+    }
+    
+    /// Replaces the text that is in the specified range.
+    public func replace(_ range: UITextRange, withText text: String) {
+        textView?.replace(range, withText: text)
+    }
+    
+    /// The current selection range of the text view as a UITextRange.
+    public var selectedTextRange: UITextRange? {
+        get {
+            textView?.selectedTextRange
+        }
+        set {
+            textView?.selectedTextRange = newValue
+        }
     }
 }
 
