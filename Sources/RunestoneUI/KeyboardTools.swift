@@ -1,4 +1,4 @@
-//
+ //
 //  KeyboardTools.swift
 //
 //  The keyboard input accessor for a coding editor, wiring up for
@@ -21,40 +21,40 @@ public final class KeyboardToolsView: UIInputView {
         let frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 44)
         let operationButtons = [
             KeyboardAccessoryButton(title: "lessthan", icon: "lessthan", action: {
-                //TODO: Missing implementation
+                textView.insertText("<")
             }),
             KeyboardAccessoryButton(title: "number", icon: "number", action: {
-                //TODO: Missing implementation
+                textView.insertText("#")
             }),
             KeyboardAccessoryButton(title: "percent", icon: "percent", action: {
-                //TODO: Missing implementation
+                textView.insertText("%")
             }),
             KeyboardAccessoryButton(title: "and", icon: "", action: {
-                //TODO: Missing implementation
+                textView.insertText("and")
             }),
             KeyboardAccessoryButton(title: "or", icon: "", action: {
-                //TODO: Missing implementation
+                textView.insertText("or")
             }),
             KeyboardAccessoryButton(title: "greaterthan", icon: "greaterthan", action: {
-                //TODO: Missing implementation
+                textView.insertText(">")
             }),
             KeyboardAccessoryButton(title: "~", icon: "", action: {
-                //TODO: Missing implementation
+                textView.insertText("~")
             }),
             KeyboardAccessoryButton(title: "minus", icon: "minus", action: {
-                //TODO: Missing implementation
+                textView.insertText("-")
             }),
             KeyboardAccessoryButton(title: "plus", icon: "plus", action: {
-                //TODO: Missing implementation
+                textView.insertText("+")
             }),
             KeyboardAccessoryButton(title: "*", icon: "", action: {
-                //TODO: Missing implementation
+                textView.insertText("*")
             }),
             KeyboardAccessoryButton(title: "/", icon: "", action: {
-                //TODO: Missing implementation
+                textView.insertText("/")
             }),
             KeyboardAccessoryButton(title: "^", icon: "", action: {
-                //TODO: Missing implementation
+                textView.insertText("^")
             }),
         ]
         let buttons = [
@@ -80,13 +80,13 @@ public final class KeyboardToolsView: UIInputView {
                 action: {
                     textView.undoManager?.redo()
                 }),
-            KeyboardAccessoryButton(
-                title: "Reference",
-                icon: "eye",
-                action: {
-                    //TODO: missing implementation for reference
-                    
-                }),
+//            KeyboardAccessoryButton(
+//                title: "Reference",
+//                icon: "eye",
+//                action: {
+//                    //TODO: missing implementation for reference
+//                    
+//                }),
             KeyboardAccessoryButton(
                 title: "Operations",
                 icon: "plus.forwardslash.minus",
@@ -100,37 +100,40 @@ public final class KeyboardToolsView: UIInputView {
                 additionalOptions: [
                     KeyboardAccessoryButton(
                         title: "{}", icon: "", action: {
-                            //TODO: Missing Implementation
+                            textView.insertText("{}")
+                            textView.moveCursorLeft()
+
                         }),
                     KeyboardAccessoryButton(
                         title: "[]", icon: "", action: {
-                            //TODO: Missing Implementation
+                            textView.insertText("[]")
+                            textView.moveCursorLeft()
                         })],
                 action: {
-                    //TODO: Missing Implementation
+                    textView.insertText("()")
+                    textView.moveCursorLeft()
                 }),
             KeyboardAccessoryButton(
                 title: "\"\"",
                 icon: "",
-                additionalOptions: [
-                    KeyboardAccessoryButton(
-                        title: "--",
-                        icon: "",
-                        action: {
-                        //TODO: Missing Implementation
-                    })],
                 action: {
-                    //TODO: Missing Implementation
+                    textView.insertText("\"\"")
+                    textView.moveCursorLeft()
                 }),
+            KeyboardAccessoryButton(
+                title: "Move Left",
+                icon: "arrow.left",
+                action: {
+                    textView.moveCursorLeft()
+                    
+                    
+                }),
+            KeyboardAccessoryButton(title: "Move Right", icon: "arrow.right", action: {
+                textView.moveCursorRight()
+            }),
             KeyboardAccessoryButton(
                 title: "search",
                 icon: "magnifyingglass",
-                action: {
-                    //TODO: Missing Implementation
-                }),
-            
-            KeyboardAccessoryButton(
-                title: "play", icon: "play",
                 action: {
                     //TODO: Missing Implementation
                 }),
@@ -140,23 +143,6 @@ public final class KeyboardToolsView: UIInputView {
                 action: {
                     textView.resignFirstResponder()
                 })
-            
-            
-            //                       KeyboardAccessoryButton(title: "Tab Left1", icon: "arrow.left.to.line",
-            //                                               additionalOptions: [KeyboardAccessoryButton(title: "Tab Right", icon: "arrow.right.to.line", action: {
-            //                                               textView.shiftRight()
-            //                                           }),
-            //                                           KeyboardAccessoryButton(title: "Undo", icon: "arrow.uturn.backward", action: {
-            //                                               textView.undoManager?.undo()
-            //                                           }),
-            //                                           KeyboardAccessoryButton(title: "Redo", icon: "arrow.uturn.forward", action: {
-            //                                               textView.undoManager?.redo()
-            //                                           }),
-            //                                           KeyboardAccessoryButton(title: "Dismiss",icon: "keyboard.chevron.compact.down", action: {
-            //                                                   textView.resignFirstResponder()
-            //                                               })], action: {
-            //                                               textView.shiftLeft()
-            //                                           })
             
         ]
         self.keyboardToolsObservable = KeyboardToolsObservable(buttons: buttons)
@@ -225,7 +211,7 @@ class KeyboardToolsObservable {
 
 struct KeyboardToolsUI: View {
     @State private var globalWidth: CGFloat = 0
-    @State private var buttonWidth: CGFloat = 125.0
+    @State private var buttonWidth: CGFloat = 150.0
     var keyboardToolsObservable: KeyboardToolsObservable
     var body: some View {
         HStack {
@@ -244,14 +230,14 @@ struct KeyboardToolsUI: View {
                     globalWidth = geometry.size.width
                     let buttonCount = keyboardToolsObservable.buttons.count
                     let totalSpacing = CGFloat((buttonCount * 16) + 16)
-                    buttonWidth = min(125.0, (globalWidth - totalSpacing) / CGFloat(keyboardToolsObservable.buttons.count))
+                    buttonWidth = min(150.0, (globalWidth - totalSpacing) / CGFloat(keyboardToolsObservable.buttons.count))
                 }
                 .onChange(of: geometry.size, { old, new in
                     // Update on change width of whole app view, derive button width from that value and button count
                     globalWidth = new.width
                     let buttonCount = keyboardToolsObservable.buttons.count
                     let totalSpacing = CGFloat((buttonCount * 16) + 16)
-                    buttonWidth = min(125.0, (globalWidth - totalSpacing) / CGFloat(keyboardToolsObservable.buttons.count))
+                    buttonWidth = min(150.0, (globalWidth - totalSpacing) / CGFloat(keyboardToolsObservable.buttons.count))
                 })
             }
         }
@@ -268,7 +254,7 @@ struct KeyboardToolsButton: View {
     
     let buttonModel: KeyboardAccessoryButton
     var isSelected: Bool = false
-    var buttonWidth: CGFloat = 125.0
+    let buttonWidth: CGFloat
     
     var additionalOptionsCount: Int {
         return buttonModel.additionalOptions.count
