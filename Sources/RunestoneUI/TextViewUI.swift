@@ -21,19 +21,20 @@ public struct TextViewUI: UIViewRepresentable {
     let commands: TextViewCommands
     
     let onChange: (_ textView: TextView) -> ()
+    let onLoaded: (_ textView: TextView) -> ()
 
     /// Creates a TextViewUI with the contents of the specified string, and it will invoke the onChange method when changes to it happen
     /// - Parameters:
     ///  - text: The text to edit
     ///  - onChange: callback that is invoked when the text changes and includes a handle to the TextView, so you can extract data as needed
-    public init (text: Binding<String>, onChange: ((_ textView: TextView) ->())? = nil, commands: TextViewCommands) {
+    public init (text: Binding<String>, onLoaded: ((_ textView: TextView) ->())? = nil, onChange: ((_ textView: TextView) ->())? = nil, commands: TextViewCommands) {
         self._text = text
         self.onChange = onChange ?? { x in }
+        self.onLoaded = onLoaded ?? { x in }
         self.commands = commands
     }
     
     public func makeUIView(context: Context) -> TextView {
-        print ("Created TextView")
         let tv = TextView ()
         tv.text = text
         tv.editorDelegate = context.coordinator
@@ -59,10 +60,10 @@ public struct TextViewUI: UIViewRepresentable {
         tv.smartDashesType = .no
         tv.characterPairs = characterPairs
         #if os(iOS)
-            
             tv.inputAccessoryView = KeyboardToolsView(textView: tv)
         #endif
         
+        onLoaded (tv)
         return tv
     }
  
@@ -256,11 +257,7 @@ extension View {
 /// Create an instance of this variable to trigger various actions on the TextView externally
 /// you pass a binding to this value, and then call methods of this to trigger certain actions.
 public class TextViewCommands {
-    static var total = 0
-    var id: Int
     public init () {
-        id = TextViewCommands.total
-        TextViewCommands.total+=1
     }
     
     /// The textview that provides the backing services
@@ -268,7 +265,14 @@ public class TextViewCommands {
     
     /// Requests that the TextView navigates to the specified line
     public func requestGoto(line: Int) {
-        textView?.goToLine(line)
+        guard let textView else { return }
+        if textView.goToLine(line) {
+            // For some reason goToLine does not always update the cursor position,
+            // not really a problem, because textView.goToLine already does this
+            // same thing for another workaround related to the caret position
+            textView.resignFirstResponder()
+            textView.becomeFirstResponder()
+        }
     }
 
     /// Requests that the find UI is shown
