@@ -176,6 +176,27 @@ public final class KeyboardToolsView: UIInputView {
     }
 }
 
+extension TextView {
+    func moveCursorLeft () {
+        if let selectedRange = self.selectedTextRange {
+            if let newCursorPosition = self.position(from: selectedRange.start, offset: -1) {
+                let newSelectedRange = self.textRange(from: newCursorPosition, to: newCursorPosition)
+                self.selectedTextRange = newSelectedRange
+            }
+        }
+    }
+    
+    func moveCursorRight() {
+        if let selectedRange = self.selectedTextRange {
+            if let newCursorPosition = self.position(from: selectedRange.end, offset: 1) {
+                let newSelectedRange = self.textRange(from: newCursorPosition, to: newCursorPosition)
+                self.selectedTextRange = newSelectedRange
+            }
+        }
+
+    }
+}
+
 private extension KeyboardToolsView {
     @objc private func updateUndoRedoButtonStates() {
         let undoManager = textView?.undoManager
