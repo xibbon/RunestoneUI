@@ -1,6 +1,9 @@
-// The Swift Programming Language
-// https://docs.swift.org/swift-book
-
+//
+// SwiftUI wrapper for Runestone's TextView, it additionally adds the possibility of showing
+// breakpoint markers
+//
+// Copyright 2024 Miguel de Icaza
+//
 import SwiftUI
 
 import UIKit
@@ -8,6 +11,9 @@ import UIKit
 
 /// SwiftUI wrapper for RuneStone's TextView
 ///
+/// Various properties are exposed to control the TextView externally, but for operations that can not
+/// be exposed via a binding, users create a `TextViewCommands` instance and pass it here, and
+/// then they can issue commands to control the `TextViewUI` in that way.
 public struct TextViewUI: UIViewRepresentable {
     @Environment(\.language) var language: TreeSitterLanguage?
     @Environment(\.lineHeightMultiplier) var lineHeightMultiplier: Double
@@ -18,26 +24,33 @@ public struct TextViewUI: UIViewRepresentable {
     @Environment(\.findInteraction) var findInteraction: Bool
     
     @Binding var text: String
+    @Binding var breakpoints: Set<Int>
     let commands: TextViewCommands
-    
     let onChange: (_ textView: TextView) -> ()
     let onLoaded: (_ textView: TextView) -> ()
+    let gutterTap: (_ textView: TextView, _ line: Int) -> ()
 
     /// Creates a TextViewUI with the contents of the specified string, and it will invoke the onChange method when changes to it happen
     /// - Parameters:
-    ///  - text: The text to edit
+    ///  - text: The text to edit, it is updated as the user makes changes to it
+    ///  - commands: you create an instance of this class and pass it here, and you can then control the TextViewUI by issuing commands there
+    ///  - breakpoints: Optional, if set is a set of line numbers that should be flagged with a breakpoint indicator in the gutter portion of the text view
+    ///  - onLoaded: method invoked when the textView is created, and it gets a pointer to the underlying TextView
     ///  - onChange: callback that is invoked when the text changes and includes a handle to the TextView, so you can extract data as needed
-    public init (text: Binding<String>, onLoaded: ((_ textView: TextView) ->())? = nil, onChange: ((_ textView: TextView) ->())? = nil, commands: TextViewCommands) {
+    public init (text: Binding<String>, commands: TextViewCommands, breakpoints: Binding<Set<Int>> = .constant([]), onLoaded: ((_ textView: TextView) ->())? = nil, onChange: ((_ textView: TextView) ->())? = nil, gutterTap: ((_ textView: TextView, _ line: Int) -> ())? = nil) {
         self._text = text
         self.onChange = onChange ?? { x in }
         self.onLoaded = onLoaded ?? { x in }
+        self.gutterTap = gutterTap ?? { x, y in }
         self.commands = commands
+        self._breakpoints = breakpoints
     }
     
     public func makeUIView(context: Context) -> TextView {
-        let tv = TextView ()
+        let tv = PTextView ()
         tv.text = text
         tv.editorDelegate = context.coordinator
+        tv.delegate = context.coordinator
 
         // Configuration options
         tv.backgroundColor = UIColor.systemBackground
@@ -52,6 +65,7 @@ public struct TextViewUI: UIViewRepresentable {
 
         //tv.kern = 0.3
         tv.isLineWrappingEnabled = false
+        tv.gutterMinimumCharacterCount = 3
         //tv.showPageGuide = true
         //tv.pageGuideColumn = 80
         tv.autocorrectionType = .no
@@ -68,10 +82,10 @@ public struct TextViewUI: UIViewRepresentable {
     }
  
     public func makeCoordinator() -> TextViewCoordinator {
-        return TextViewCoordinator(text: $text, onChange: onChange, commands: commands)
+        return TextViewCoordinator(text: $text, onChange: onChange, gutterTap: gutterTap, commands: commands)
     }
     
-    public func updateUIView(_ tv: Runestone.TextView, context: Context) {
+    public func updateUIView(_ tv: TextView, context: Context) {
         let coordinator = context.coordinator
         if let language {
             if language !== coordinator.language {
@@ -82,8 +96,12 @@ public struct TextViewUI: UIViewRepresentable {
         coordinator.lineHeightMultiplier = lineHeightMultiplier
         tv.lineHeightMultiplier = lineHeightMultiplier
         tv.text = text
+        if let ptv = tv as? PTextView {
+            ptv.setBreakpoints(new: breakpoints)
+        }
         coordinator.commands.textView = tv
-    
+        
+        tv.gutterTrailingPadding = (tv as? PTextView)?.breakpointSpace ?? 0
         coordinator.showSpaces = showSpaces
         tv.showSpaces = showSpaces
         tv.showNonBreakingSpaces = showSpaces
@@ -102,7 +120,7 @@ public struct TextViewUI: UIViewRepresentable {
         coordinator.commands.textView = tv
     }
     
-    public class TextViewCoordinator: TextViewDelegate {
+    public class TextViewCoordinator: NSObject, TextViewDelegate, UIScrollViewDelegate {
         var language: TreeSitterLanguage? = nil
         var lineHeightMultiplier: Double = 1.3
         var showTabs: Bool = false
@@ -111,17 +129,40 @@ public struct TextViewUI: UIViewRepresentable {
         var findInteraction: Bool = true
         var text: Binding<String>
         let onChange: (_ textView: TextView)->()
+        let gutterTap: (_ textView: TextView, _ line: Int) -> ()
         let commands: TextViewCommands
-        init (text: Binding<String>, onChange: @escaping (_ textView: TextView)->(), commands: TextViewCommands) {
+        var lastEnd: UITextPosition?
+        
+        init (text: Binding<String>, onChange: @escaping (_ textView: TextView)->(), gutterTap: @escaping (_ textView: TextView, _ line: Int) -> (), commands: TextViewCommands) {
             self.text = text
             self.onChange = onChange
             self.commands = commands
+            self.gutterTap = gutterTap
+        }
+        
+        public func scrollViewDidScroll(_ scrollView: UIScrollView) {
+            guard let pt = scrollView as? PTextView else { return }
+            pt.overlayView.frame.origin.y = scrollView.contentOffset.y
         }
         
         public func textViewDidChange(_ textView: TextView) {
-            text.wrappedValue = textView.text
+            let newText = textView.text
+            text.wrappedValue =  newText
             onChange (textView)
-            
+
+            if let last = lastEnd {
+                switch textView.compare(last, to: textView.endOfDocument) {
+                case .orderedAscending:
+                    break
+                case .orderedDescending:
+                    (textView as? PTextView)?.updateBreakpointView()
+                case .orderedSame:
+                    break
+                }
+            } else {
+                (textView as? PTextView)?.updateBreakpointView()
+            }
+            self.lastEnd = textView.endOfDocument
             // This is the code that you would need to extract location information:
 //            var region: CGRect? = nil
 //            
@@ -261,7 +302,7 @@ public class TextViewCommands {
     }
     
     /// The textview that provides the backing services
-    public var textView: TextView?
+    public weak var textView: TextView?
     
     /// Requests that the TextView navigates to the specified line
     public func requestGoto(line: Int) {
@@ -307,6 +348,176 @@ public class TextViewCommands {
         }
         set {
             textView?.selectedTextRange = newValue
+        }
+    }
+}
+
+/// This is a subclass of TextView, which I use to implement the breakpoint features
+class PTextView: TextView {
+    // We put the breakpoint symbols here, under the line number text
+    var underlayView: UIView
+    // We put the tap handler here, over the view, on the gutter
+    var overlayView: OverlayView
+    
+    var breakpointSpace: CGFloat {
+        let f = theme.font
+        return f.ascender + abs(f.descender) + f.leading
+    }
+
+    // This class exists just so that we can get nice information at debug time
+    class BreakpointView: UIView {
+    }
+    
+    // The view we are looking for is the TextInput.TextInputView.lineNumbersContainerView
+    func getHostView () -> UIView? {
+        subviews.dropFirst(4).first?.subviews.dropFirst(2).first
+    }
+    
+    // We put this window on top of the textview, so we can capture taps on the gutter, which
+    // we translate into enabling/disabling a breakpoint.
+    class OverlayView: UIView {
+        weak var container: PTextView?
+        
+        override init (frame: CGRect) {
+            self.container = nil
+            super.init (frame: frame)
+            
+            // To debug if the view is in the right place, you can use this
+            // backgroundColor = UIColor (red: 0.5, green: 0.0, blue: 0.0, alpha: 0.5)
+            backgroundColor = UIColor.clear
+            isUserInteractionEnabled = true
+            
+            addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(gutterTapped)))
+        }
+        
+        required init?(coder: NSCoder) {
+            fatalError()
+        }
+        
+        @objc
+        func gutterTapped (sender: UITapGestureRecognizer) {
+            guard let container else { return }
+            guard let coordinator = container.editorDelegate as? TextViewUI.TextViewCoordinator else {
+                return
+            }
+            guard sender.state == .ended else { return }
+            let location = sender.location (in: self)
+            if let tapLocation = container.closestPosition(to: CGPoint(x: location.x, y: location.y+container.contentOffset.y)) {
+                let tapOffset = container.offset(from: container.beginningOfDocument, to: tapLocation)
+                if let line = container.textLocation(at: tapOffset) {
+                    coordinator.gutterTap (container, line.lineNumber)
+                }
+            }
+        }
+    }
+    override public init(frame: CGRect) {
+        underlayView = BreakpointView(frame: frame)
+        underlayView.backgroundColor = UIColor.clear
+        overlayView = OverlayView (frame: frame)
+        super.init (frame: frame)
+        overlayView.container = self
+        addSubview(overlayView)
+    }
+    
+    public required init?(coder: NSCoder) {
+        fatalError("Not implemented")
+    }
+    
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        let f = frame
+        overlayView.frame = CGRect (x: 0, y: contentOffset.y, width: gutterWidth, height: f.height)
+        if let host = getHostView () {
+            if underlayView.superview == nil {
+                underlayView.frame = host.frame
+                host.addSubview(underlayView)
+            }
+            underlayView.frame = host.frame
+        }
+        bringSubviewToFront(overlayView)
+        updateBreakpointView()
+    }
+    
+    var breakpointViews: [Int:UIView] = [:]
+    var breakpoints = Set<Int>()
+    
+    func setBreakpoints (new: Set<Int>) {
+        let removed = breakpoints.subtracting(new)
+        for line in removed {
+            if let view = breakpointViews [line] {
+                view.removeFromSuperview()
+                breakpointViews.removeValue(forKey: line)
+            }
+        }
+        let added = new.subtracting(breakpoints)
+        self.breakpoints = new
+        updateBreakpointView(for: added)
+    }
+    
+    func updateBreakpointView() {
+        updateBreakpointView(for: breakpoints)
+    }
+    
+    func updateBreakpointView (for breakpoints: Set<Int>) {
+        for bpLine in breakpoints {
+            let tl = TextLocation (lineNumber: bpLine, column: 0)
+            guard let loc = location(at: tl) else {
+                if let v = breakpointViews.removeValue(forKey: bpLine) {
+                    v.removeFromSuperview()
+                }
+                return
+            }
+            guard let p = position(from: beginningOfDocument, offset: loc) else {
+                if let v = breakpointViews.removeValue(forKey: bpLine) {
+                    v.removeFromSuperview()
+                }
+                return
+            }
+            let rect = caretRect(for: p)
+            let bpFrame = CGRect(x: gutterLeadingPadding, y: rect.minY, width: gutterWidth-gutterLeadingPadding-5, height: rect.height)
+            if let bpView = breakpointViews [bpLine] {
+                bpView.frame = bpFrame
+            } else {
+                let prv = PointedRectangleView(frame: bpFrame)
+                prv.backgroundColor = UIColor.clear
+                underlayView.addSubview(prv)
+                breakpointViews [bpLine] = prv
+            }
+        }
+    }
+
+    class PointedRectangleView: UIView {
+        let arrowSize: CGFloat = 5
+        
+        override func draw(_ rect: CGRect) {
+            // Define the start point of the path
+            let startPoint = CGPoint(x: rect.minX, y: rect.midY)
+            
+            // Define the other points of the path
+            let topLeft = CGPoint(x: rect.minX, y: rect.minY)
+            let topRight = CGPoint(x: rect.maxX - arrowSize, y: rect.minY)
+            let pointRight = CGPoint(x: rect.maxX, y: rect.midY)
+            let bottomRight = CGPoint(x: rect.maxX - arrowSize, y: rect.maxY)
+            let bottomLeft = CGPoint(x: rect.minX, y: rect.maxY)
+            
+            // Create the bezier path
+            let path = UIBezierPath()
+            path.move(to: startPoint)
+            path.addLine(to: topLeft)
+            path.addLine(to: topRight)
+            path.addLine(to: pointRight)
+            path.addLine(to: bottomRight)
+            path.addLine(to: bottomLeft)
+            path.close()
+            
+            UIColor.systemBlue.setFill()
+            //Color.accentColor.opacity(0.3)
+            path.fill()
+            
+            // Set the stroke color and stroke the path
+            UIColor.tintColor.setStroke()
+            path.lineWidth = 1
+            path.stroke()
         }
     }
 }
