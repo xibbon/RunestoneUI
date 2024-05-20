@@ -20,6 +20,7 @@ public struct TextViewUI: UIViewRepresentable {
     @Environment(\.showSpaces) var showSpaces: Bool
     @Environment(\.showTabs) var showTabs: Bool
     @Environment(\.showLineNumbers) var showLineNumbers: Bool
+    @Environment(\.highlightLine) var highlightLine: Int?
     @Environment(\.characterPairs) var characterPairs: [CharacterPair]
     @Environment(\.findInteraction) var findInteraction: Bool
     
@@ -62,6 +63,7 @@ public struct TextViewUI: UIViewRepresentable {
         tv.showSoftLineBreaks = showSpaces
         tv.showLineBreaks = showSpaces
         tv.showTabs = context.coordinator.showTabs
+        tv.highlightedLine = context.coordinator.highlightLine
 
         //tv.kern = 0.3
         tv.isLineWrappingEnabled = false
@@ -73,6 +75,7 @@ public struct TextViewUI: UIViewRepresentable {
         tv.smartQuotesType = .no
         tv.smartDashesType = .no
         tv.characterPairs = characterPairs
+        tv.lineSelectionDisplayType = .line
         #if os(iOS)
             tv.inputAccessoryView = KeyboardToolsView(textView: tv)
         #endif
@@ -112,6 +115,7 @@ public struct TextViewUI: UIViewRepresentable {
         tv.showTabs = showTabs
         
         coordinator.showLineNumbers = showLineNumbers
+        coordinator.highlightLine = highlightLine
         tv.showLineNumbers = showLineNumbers
         
         tv.characterPairs = characterPairs
@@ -126,6 +130,7 @@ public struct TextViewUI: UIViewRepresentable {
         var showTabs: Bool = false
         var showSpaces: Bool = false
         var showLineNumbers: Bool = true
+        var highlightLine: Int? = nil
         var findInteraction: Bool = true
         var text: Binding<String>
         let onChange: (_ textView: TextView)->()
@@ -200,6 +205,10 @@ public struct ShowLineNumbersKey: EnvironmentKey {
     public static let defaultValue: Bool = true
 }
 
+public struct HighlightLineKey: EnvironmentKey {
+    public static let defaultValue: Int? = nil
+}
+
 public struct ShowTabsKey: EnvironmentKey {
     public static let defaultValue: Bool = false
 }
@@ -241,6 +250,10 @@ extension EnvironmentValues {
         get { self[ShowLineNumbersKey.self] }
         set { self[ShowLineNumbersKey.self] = newValue }
     }
+    public var highlightLine: Int? {
+        get { self[HighlightLineKey.self] }
+        set { self[HighlightLineKey.self] = newValue }
+    }
     public var characterPairs: [CharacterPair] {
         get { self[CharacterPairsKey.self] }
         set { self[CharacterPairsKey.self] = newValue }
@@ -281,7 +294,12 @@ extension View {
     public func showLineNumbers (_ value: Bool) -> some View {
         environment(\.showLineNumbers, value)
     }
-    
+
+    /// If not nil, highlights this line in the editor
+    public func highlightLine (_ value: Int?) -> some View {
+        environment(\.highlightLine, value)
+    }
+
     /// Character pairs are used by the editor to automatically insert a trailing character when the user types the leading character.
     /// Common usages of this includes the " character to surround strings and { } to surround a scope.
     public func characterPairs (_ value: [CharacterPair]) -> some View {
