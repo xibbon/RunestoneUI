@@ -319,8 +319,46 @@ public class TextViewCommands {
     public init () {
     }
     
+    public var keyboardAnchor: UIView?
+    
     /// The textview that provides the backing services
-    public weak var textView: TextView?
+    public weak var textView: TextView? {
+        didSet {
+            if let textView {
+                print ("Activating")
+                let anchor = UIView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
+                anchor.backgroundColor = .blue
+                anchor.translatesAutoresizingMaskIntoConstraints = false
+                textView.addSubview(anchor)
+                
+                // Add constraints to the custom view
+                NSLayoutConstraint.activate([
+                    anchor.leadingAnchor.constraint(equalTo: textView.leadingAnchor),
+                    anchor.trailingAnchor.constraint(equalTo: textView.trailingAnchor),
+                    anchor.heightAnchor.constraint(equalToConstant: 10),
+                    anchor.widthAnchor.constraint(equalToConstant: 100),
+                    anchor.bottomAnchor.constraint(equalTo: textView.keyboardLayoutGuide.topAnchor)
+                ])
+                self.keyboardAnchor = anchor
+            } else {
+                keyboardAnchor?.removeFromSuperview()
+            }
+        }
+    }
+    
+    /// Returns the keyboard offset measured in visible Y coordinates.
+    public var keyboardOffset: Double {
+        get {
+            if let textView {
+                if let keyboardAnchor {
+                    return keyboardAnchor.frame.minY - textView.contentOffset.y
+                }
+                return textView.frame.height
+            } else {
+                return Double.infinity
+            }
+        }
+    }
     
     /// Requests that the TextView navigates to the specified line
     public func requestGoto(line: Int) {
