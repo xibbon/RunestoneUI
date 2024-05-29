@@ -326,8 +326,8 @@ public class TextViewCommands {
         didSet {
             if let textView {
                 print ("Activating")
-                let anchor = UIView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
-                anchor.backgroundColor = .blue
+                let anchor = UIView()
+                anchor.backgroundColor = .clear
                 anchor.translatesAutoresizingMaskIntoConstraints = false
                 textView.addSubview(anchor)
                 
@@ -335,8 +335,8 @@ public class TextViewCommands {
                 NSLayoutConstraint.activate([
                     anchor.leadingAnchor.constraint(equalTo: textView.leadingAnchor),
                     anchor.trailingAnchor.constraint(equalTo: textView.trailingAnchor),
-                    anchor.heightAnchor.constraint(equalToConstant: 10),
-                    anchor.widthAnchor.constraint(equalToConstant: 100),
+                    anchor.heightAnchor.constraint(equalToConstant: 1),
+                    anchor.widthAnchor.constraint(equalToConstant: 1),
                     anchor.bottomAnchor.constraint(equalTo: textView.keyboardLayoutGuide.topAnchor)
                 ])
                 self.keyboardAnchor = anchor
