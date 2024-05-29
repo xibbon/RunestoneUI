@@ -26,6 +26,7 @@ public struct TextViewUI: UIViewRepresentable {
     
     @Binding var text: String
     @Binding var breakpoints: Set<Int>
+    @Binding var keyboardOffset: CGFloat
     let commands: TextViewCommands
     let onChange: (_ textView: TextView) -> ()
     let onLoaded: (_ textView: TextView) -> ()
@@ -35,11 +36,13 @@ public struct TextViewUI: UIViewRepresentable {
     /// - Parameters:
     ///  - text: The text to edit, it is updated as the user makes changes to it
     ///  - commands: you create an instance of this class and pass it here, and you can then control the TextViewUI by issuing commands there
+    ///  - keyboardOffset: if this is provided, the location of the keyboard offset is
     ///  - breakpoints: Optional, if set is a set of line numbers that should be flagged with a breakpoint indicator in the gutter portion of the text view
     ///  - onLoaded: method invoked when the textView is created, and it gets a pointer to the underlying TextView
     ///  - onChange: callback that is invoked when the text changes and includes a handle to the TextView, so you can extract data as needed
-    public init (text: Binding<String>, commands: TextViewCommands, breakpoints: Binding<Set<Int>> = .constant([]), onLoaded: ((_ textView: TextView) ->())? = nil, onChange: ((_ textView: TextView) ->())? = nil, gutterTap: ((_ textView: TextView, _ line: Int) -> ())? = nil) {
+    public init (text: Binding<String>, commands: TextViewCommands, keyboardOffset: Binding<CGFloat> = .constant(0), breakpoints: Binding<Set<Int>> = .constant([]), onLoaded: ((_ textView: TextView) ->())? = nil, onChange: ((_ textView: TextView) ->())? = nil, gutterTap: ((_ textView: TextView, _ line: Int) -> ())? = nil) {
         self._text = text
+        self._keyboardOffset = keyboardOffset
         self.onChange = onChange ?? { x in }
         self.onLoaded = onLoaded ?? { x in }
         self.gutterTap = gutterTap ?? { x, y in }
@@ -52,6 +55,7 @@ public struct TextViewUI: UIViewRepresentable {
         tv.text = text
         tv.editorDelegate = context.coordinator
         tv.delegate = context.coordinator
+        tv.ptDelegate = context.coordinator
 
         // Configuration options
         tv.backgroundColor = UIColor.systemBackground
@@ -85,7 +89,7 @@ public struct TextViewUI: UIViewRepresentable {
     }
  
     public func makeCoordinator() -> TextViewCoordinator {
-        return TextViewCoordinator(text: $text, onChange: onChange, gutterTap: gutterTap, commands: commands)
+        return TextViewCoordinator(text: $text, keyboardOffset: $keyboardOffset, onChange: onChange, gutterTap: gutterTap, commands: commands)
     }
     
     public func updateUIView(_ tv: TextView, context: Context) {
@@ -124,7 +128,7 @@ public struct TextViewUI: UIViewRepresentable {
         coordinator.commands.textView = tv
     }
     
-    public class TextViewCoordinator: NSObject, TextViewDelegate, UIScrollViewDelegate {
+    public class TextViewCoordinator: NSObject, TextViewDelegate, UIScrollViewDelegate, PTextViewDelegate {
         var language: TreeSitterLanguage? = nil
         var lineHeightMultiplier: Double = 1.3
         var showTabs: Bool = false
@@ -133,13 +137,16 @@ public struct TextViewUI: UIViewRepresentable {
         var highlightLine: Int? = nil
         var findInteraction: Bool = true
         var text: Binding<String>
+        var keyboardOffset: Binding<CGFloat>
+
         let onChange: (_ textView: TextView)->()
         let gutterTap: (_ textView: TextView, _ line: Int) -> ()
         let commands: TextViewCommands
         var lastEnd: UITextPosition?
         
-        init (text: Binding<String>, onChange: @escaping (_ textView: TextView)->(), gutterTap: @escaping (_ textView: TextView, _ line: Int) -> (), commands: TextViewCommands) {
+        init (text: Binding<String>, keyboardOffset: Binding<CGFloat>, onChange: @escaping (_ textView: TextView)->(), gutterTap: @escaping (_ textView: TextView, _ line: Int) -> (), commands: TextViewCommands) {
             self.text = text
+            self.keyboardOffset = keyboardOffset
             self.onChange = onChange
             self.commands = commands
             self.gutterTap = gutterTap
@@ -189,6 +196,11 @@ public struct TextViewUI: UIViewRepresentable {
             //print ("Range is: loc: \(range.location) len: \(range.length)")
             
             return true
+        }
+        
+        func updateKeyboardLocation (_ textView: PTextView, _ location: CGFloat) {
+            print ("Location is \(location) and the textView content is: \(textView.contentOffset.y)")
+            keyboardOffset.wrappedValue = location - textView.contentOffset.y
         }
     }
 }
@@ -322,43 +334,7 @@ public class TextViewCommands {
     public var keyboardAnchor: UIView?
     
     /// The textview that provides the backing services
-    public weak var textView: TextView? {
-        didSet {
-            if let textView {
-                print ("Activating")
-                let anchor = UIView()
-                anchor.backgroundColor = .clear
-                anchor.translatesAutoresizingMaskIntoConstraints = false
-                textView.addSubview(anchor)
-                
-                // Add constraints to the custom view
-                NSLayoutConstraint.activate([
-                    anchor.leadingAnchor.constraint(equalTo: textView.leadingAnchor),
-                    anchor.trailingAnchor.constraint(equalTo: textView.trailingAnchor),
-                    anchor.heightAnchor.constraint(equalToConstant: 1),
-                    anchor.widthAnchor.constraint(equalToConstant: 1),
-                    anchor.bottomAnchor.constraint(equalTo: textView.keyboardLayoutGuide.topAnchor)
-                ])
-                self.keyboardAnchor = anchor
-            } else {
-                keyboardAnchor?.removeFromSuperview()
-            }
-        }
-    }
-    
-    /// Returns the keyboard offset measured in visible Y coordinates.
-    public var keyboardOffset: Double {
-        get {
-            if let textView {
-                if let keyboardAnchor {
-                    return keyboardAnchor.frame.minY - textView.contentOffset.y
-                }
-                return textView.frame.height
-            } else {
-                return Double.infinity
-            }
-        }
-    }
+    public weak var textView: TextView?
     
     /// Requests that the TextView navigates to the specified line
     public func requestGoto(line: Int) {
@@ -408,12 +384,19 @@ public class TextViewCommands {
     }
 }
 
+protocol PTextViewDelegate: AnyObject {
+    func updateKeyboardLocation (_ textView: PTextView, _ location: CGFloat)
+}
+
 /// This is a subclass of TextView, which I use to implement the breakpoint features
 class PTextView: TextView {
     // We put the breakpoint symbols here, under the line number text
     var underlayView: UIView
+    var keyboardAnchor: KeyboardAnchorView
+    
     // We put the tap handler here, over the view, on the gutter
     var overlayView: OverlayView
+    weak var ptDelegate: PTextViewDelegate?
     
     var breakpointSpace: CGFloat {
         let f = theme.font
@@ -466,13 +449,57 @@ class PTextView: TextView {
             }
         }
     }
+    
+    /// This view sole purpose is to track the location of the bottom we can render on
+    class KeyboardAnchorView: UIView {
+        weak var container: PTextView? = nil
+        
+        public override var frame: CGRect {
+            get {
+                super.frame
+            }
+            set {
+                super.frame = newValue
+                if let container {
+                    container.ptDelegate?.updateKeyboardLocation(container, frame.minY)
+                }
+            }
+        }
+        public override var bounds: CGRect {
+            get {
+                super.bounds
+            }
+            set {
+                super.bounds = newValue
+                if let container {
+                    container.ptDelegate?.updateKeyboardLocation(container, frame.minY)
+                }
+            }
+        }
+    }
+    
     override public init(frame: CGRect) {
         underlayView = BreakpointView(frame: frame)
         underlayView.backgroundColor = UIColor.clear
         overlayView = OverlayView (frame: frame)
+        keyboardAnchor = KeyboardAnchorView()
+        keyboardAnchor.backgroundColor = .red
+        keyboardAnchor.translatesAutoresizingMaskIntoConstraints = false
+
         super.init (frame: frame)
         overlayView.container = self
+        keyboardAnchor.container = self
         addSubview(overlayView)
+        addSubview(keyboardAnchor)
+        
+        // Add constraints to the keyboard anchor view to track the location of the keyboard
+        NSLayoutConstraint.activate([
+            keyboardAnchor.leadingAnchor.constraint(equalTo: leadingAnchor),
+            keyboardAnchor.trailingAnchor.constraint(equalTo: trailingAnchor),
+            keyboardAnchor.heightAnchor.constraint(equalToConstant: 10),
+            keyboardAnchor.widthAnchor.constraint(equalToConstant: 10),
+            keyboardAnchor.bottomAnchor.constraint(equalTo: keyboardLayoutGuide.topAnchor)
+        ])
     }
     
     public required init?(coder: NSCoder) {
