@@ -9,11 +9,44 @@ import SwiftUI
 import UIKit
 @_exported import Runestone
 
+/// Messages that are posted by the TextViewUI
+public protocol TextViewUIDelegate {
+    /// Callback that is invoked when the text changes and includes a handle to the TextView, so you can extract data as needed
+    func uitextViewChanged (_ textView: TextView)
+    /// Method invoked when the textView is created, and it gets a pointer to the underlying TextView
+    func uitextViewLoaded (_ textView: TextView)
+    /// Method invoked when the user tapped on the specified line in the gutter portion of the UI, usually used to toggle breakpoints on/off
+    func uitextViewGutterTapped (_ textView: TextView, line: Int)
+    /// The user tapped on "Lookup Symbol", so perform something with the symbol that was extracted (provided in `word`)
+    func uitextViewRequestWordLookup (_ textView: TextView, at: UITextPosition, word: String)
+}
+
+/// Default protocol implementaiton, does nothing
+public extension TextViewUIDelegate{
+    func uitextViewChanged (_ textView: TextView) {}
+    func uitextViewLoaded (_ textView: TextView) {}
+    func uitextViewGutterTapped (_ textView: TextView, line: Int) {}
+    func uitextViewRequestWordLookup (_ textView: TextView, at: UITextPosition, word: String) {}
+    
+}
 /// SwiftUI wrapper for RuneStone's TextView
 ///
 /// Various properties are exposed to control the TextView externally, but for operations that can not
 /// be exposed via a binding, users create a `TextViewCommands` instance and pass it here, and
 /// then they can issue commands to control the `TextViewUI` in that way.
+///
+/// Some configuration options that can be applied include:
+/// - `.language(TreeSitterLanguage?)` - to activate that particular language on the buffer
+/// - `lineHeightMultiplier(Double)` - controls the height of the lines
+/// - `.showSpaces(Bool)` - The text view renders invisible spaces in RuneStone
+/// - `.showTabs(Bool)` - The text view renders invisible tabs when enabled. The tabsSymbol is used to render tabs.
+/// - `.showLineNumbers(Bool)` - Controls whether to show line numbers in the gutter.
+/// - `.highlightLine(Int?)` - If not nil, highlights this line in the editor
+/// - `.characterPairs([CharacterPair])` - Character pairs are used by the editor to
+/// automatically insert a trailing character when the user types the leading character.
+/// - `.findInteraction(Bool)` - Controls whether the built-in find-interaction UI is shown on the TextViewUI,
+/// defaults to true.
+/// - `.includeLookupSymbol(Bool)` - Controls whether the "Lookup Symbol" menu is added to the text editor
 public struct TextViewUI: UIViewRepresentable {
     @Environment(\.language) var language: TreeSitterLanguage?
     @Environment(\.lineHeightMultiplier) var lineHeightMultiplier: Double
@@ -23,14 +56,13 @@ public struct TextViewUI: UIViewRepresentable {
     @Environment(\.highlightLine) var highlightLine: Int?
     @Environment(\.characterPairs) var characterPairs: [CharacterPair]
     @Environment(\.findInteraction) var findInteraction: Bool
+    @Environment(\.includeLookupSymbol) var includeLookupSymbol: Bool
     
     @Binding var text: String
     @Binding var breakpoints: Set<Int>
     @Binding var keyboardOffset: CGFloat
     let commands: TextViewCommands
-    let onChange: (_ textView: TextView) -> ()
-    let onLoaded: (_ textView: TextView) -> ()
-    let gutterTap: (_ textView: TextView, _ line: Int) -> ()
+    let delegate: TextViewUIDelegate
 
     /// Creates a TextViewUI with the contents of the specified string, and it will invoke the onChange method when changes to it happen
     /// - Parameters:
@@ -38,20 +70,28 @@ public struct TextViewUI: UIViewRepresentable {
     ///  - commands: you create an instance of this class and pass it here, and you can then control the TextViewUI by issuing commands there
     ///  - keyboardOffset: if this is provided, the location of the keyboard offset is
     ///  - breakpoints: Optional, if set is a set of line numbers that should be flagged with a breakpoint indicator in the gutter portion of the text view
-    ///  - onLoaded: method invoked when the textView is created, and it gets a pointer to the underlying TextView
-    ///  - onChange: callback that is invoked when the text changes and includes a handle to the TextView, so you can extract data as needed
-    public init (text: Binding<String>, commands: TextViewCommands, keyboardOffset: Binding<CGFloat> = .constant(0), breakpoints: Binding<Set<Int>> = .constant([]), onLoaded: ((_ textView: TextView) ->())? = nil, onChange: ((_ textView: TextView) ->())? = nil, gutterTap: ((_ textView: TextView, _ line: Int) -> ())? = nil) {
+    ///  - delegate: instance that implements the various methods required to support the TextView
+    public init (
+        text: Binding<String>,
+        commands: TextViewCommands,
+        keyboardOffset: Binding<CGFloat> = .constant(0),
+        breakpoints: Binding<Set<Int>> = .constant([]),
+        delegate: TextViewUIDelegate
+    ) {
         self._text = text
         self._keyboardOffset = keyboardOffset
-        self.onChange = onChange ?? { x in }
-        self.onLoaded = onLoaded ?? { x in }
-        self.gutterTap = gutterTap ?? { x, y in }
+        self.delegate = delegate
         self.commands = commands
         self._breakpoints = breakpoints
     }
     
     public func makeUIView(context: Context) -> TextView {
         let tv = PTextView ()
+        for x in tv.interactions {
+            print (x)
+        }
+        let menu = UIEditMenuInteraction(delegate: context.coordinator)
+        tv.addInteraction(menu)
         tv.text = text
         tv.editorDelegate = context.coordinator
         tv.delegate = context.coordinator
@@ -59,6 +99,7 @@ public struct TextViewUI: UIViewRepresentable {
 
         // Configuration options
         tv.backgroundColor = UIColor.systemBackground
+        tv.includeLookupSymbol = context.coordinator.includeLookupSymbol
         tv.showLineNumbers = context.coordinator.showLineNumbers
         tv.lineHeightMultiplier = context.coordinator.lineHeightMultiplier
         let showSpaces = context.coordinator.showSpaces
@@ -84,12 +125,12 @@ public struct TextViewUI: UIViewRepresentable {
             tv.inputAccessoryView = KeyboardToolsView(textView: tv)
         #endif
         
-        onLoaded (tv)
+        delegate.uitextViewLoaded(tv)
         return tv
     }
  
     public func makeCoordinator() -> TextViewCoordinator {
-        return TextViewCoordinator(text: $text, keyboardOffset: $keyboardOffset, onChange: onChange, gutterTap: gutterTap, commands: commands)
+        return TextViewCoordinator(text: $text, keyboardOffset: $keyboardOffset, delegate: delegate, commands: commands, includeLookupSymbol: includeLookupSymbol)
     }
     
     public func updateUIView(_ tv: TextView, context: Context) {
@@ -128,7 +169,7 @@ public struct TextViewUI: UIViewRepresentable {
         coordinator.commands.textView = tv
     }
     
-    public class TextViewCoordinator: NSObject, TextViewDelegate, UIScrollViewDelegate, PTextViewDelegate {
+    public class TextViewCoordinator: NSObject, TextViewDelegate, UIScrollViewDelegate, PTextViewDelegate, UIEditMenuInteractionDelegate {
         var language: TreeSitterLanguage? = nil
         var lineHeightMultiplier: Double = 1.3
         var showTabs: Bool = false
@@ -138,18 +179,17 @@ public struct TextViewUI: UIViewRepresentable {
         var findInteraction: Bool = true
         var text: Binding<String>
         var keyboardOffset: Binding<CGFloat>
-
-        let onChange: (_ textView: TextView)->()
-        let gutterTap: (_ textView: TextView, _ line: Int) -> ()
+        var includeLookupSymbol: Bool
+        let delegate: TextViewUIDelegate
         let commands: TextViewCommands
         var lastEnd: UITextPosition?
         
-        init (text: Binding<String>, keyboardOffset: Binding<CGFloat>, onChange: @escaping (_ textView: TextView)->(), gutterTap: @escaping (_ textView: TextView, _ line: Int) -> (), commands: TextViewCommands) {
+        init (text: Binding<String>, keyboardOffset: Binding<CGFloat>, delegate: TextViewUIDelegate, commands: TextViewCommands, includeLookupSymbol: Bool) {
             self.text = text
             self.keyboardOffset = keyboardOffset
-            self.onChange = onChange
+            self.delegate = delegate
             self.commands = commands
-            self.gutterTap = gutterTap
+            self.includeLookupSymbol = includeLookupSymbol
         }
         
         public func scrollViewDidScroll(_ scrollView: UIScrollView) {
@@ -160,8 +200,8 @@ public struct TextViewUI: UIViewRepresentable {
         public func textViewDidChange(_ textView: TextView) {
             let newText = textView.text
             text.wrappedValue =  newText
-            onChange (textView)
-
+            delegate.uitextViewChanged(textView)
+            
             if let last = lastEnd {
                 switch textView.compare(last, to: textView.endOfDocument) {
                 case .orderedAscending:
@@ -176,20 +216,20 @@ public struct TextViewUI: UIViewRepresentable {
             }
             self.lastEnd = textView.endOfDocument
             // This is the code that you would need to extract location information:
-//            var region: CGRect? = nil
-//            
-//            if let r = textView.selectedTextRange {
-//                region = textView.firstRect(for: r)
-//            }
-//            let range = textView.selectedRange
-//            let start = textView.textLocation(at: range.location)
-//            let end = textView.textLocation(at: range.location + range.length)
-//            guard let start, let end else {
-//                // If this happened, something very wrong went on
-//                print ("Start and end were not resolved out of the \(range) returned by TextView on textViewChange")
-//                return
-//            }
-//            onChange (textView, newText, region, (start, end))
+            //            var region: CGRect? = nil
+            //
+            //            if let r = textView.selectedTextRange {
+            //                region = textView.firstRect(for: r)
+            //            }
+            //            let range = textView.selectedRange
+            //            let start = textView.textLocation(at: range.location)
+            //            let end = textView.textLocation(at: range.location + range.length)
+            //            guard let start, let end else {
+            //                // If this happened, something very wrong went on
+            //                print ("Start and end were not resolved out of the \(range) returned by TextView on textViewChange")
+            //                return
+            //            }
+            //            onChange (textView, newText, region, (start, end))
         }
         
         public func textView(_ textView: TextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
@@ -198,8 +238,11 @@ public struct TextViewUI: UIViewRepresentable {
             return true
         }
         
+        func lookup(_ textView: PTextView, at: UITextPosition, word: String) {
+            delegate.uitextViewRequestWordLookup(textView, at: at, word: word)
+        }
+        
         func updateKeyboardLocation (_ textView: PTextView, _ location: CGFloat) {
-            print ("Location is \(location) and the textView content is: \(textView.contentOffset.y)")
             keyboardOffset.wrappedValue = location - textView.contentOffset.y
         }
     }
@@ -215,6 +258,10 @@ public struct LineHeightMultiplierKey : EnvironmentKey {
 
 public struct ShowLineNumbersKey: EnvironmentKey {
     public static let defaultValue: Bool = true
+}
+
+public struct IncludeLookupSymbolKey: EnvironmentKey {
+    public static let defaultValue: Bool = false
 }
 
 public struct HighlightLineKey: EnvironmentKey {
@@ -261,6 +308,10 @@ extension EnvironmentValues {
     public var showLineNumbers: Bool {
         get { self[ShowLineNumbersKey.self] }
         set { self[ShowLineNumbersKey.self] = newValue }
+    }
+    public var includeLookupSymbol: Bool {
+        get { self[IncludeLookupSymbolKey.self] }
+        set { self[IncludeLookupSymbolKey.self] = newValue }
     }
     public var highlightLine: Int? {
         get { self[HighlightLineKey.self] }
@@ -310,6 +361,11 @@ extension View {
     /// If not nil, highlights this line in the editor
     public func highlightLine (_ value: Int?) -> some View {
         environment(\.highlightLine, value)
+    }
+
+    /// Controls whether the "Lookup Symbol" menu is added to the text editor
+    public func includeLookupSymbol (_ value: Bool) -> some View {
+        environment(\.includeLookupSymbol, value)
     }
 
     /// Character pairs are used by the editor to automatically insert a trailing character when the user types the leading character.
@@ -385,7 +441,8 @@ public class TextViewCommands {
 }
 
 protocol PTextViewDelegate: AnyObject {
-    func updateKeyboardLocation (_ textView: PTextView, _ location: CGFloat)
+    func updateKeyboardLocation(_ textView: PTextView, _ location: CGFloat)
+    func lookup(_ textView: PTextView, at: UITextPosition, word: String)
 }
 
 /// This is a subclass of TextView, which I use to implement the breakpoint features
@@ -393,6 +450,7 @@ class PTextView: TextView {
     // We put the breakpoint symbols here, under the line number text
     var underlayView: UIView
     var keyboardAnchor: KeyboardAnchorView
+    var includeLookupSymbol: Bool
     
     // We put the tap handler here, over the view, on the gutter
     var overlayView: OverlayView
@@ -403,6 +461,42 @@ class PTextView: TextView {
         return f.ascender + abs(f.descender) + f.leading
     }
 
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        let v = super.canPerformAction(action, withSender: sender)
+        //print ("Can perform \(action) -> \(v)")
+        return v
+    }
+    
+    func getWordUnderSelection(pos: UITextRange) -> String? {
+        if let left = tokenizer.position(from: pos.start, toBoundary: .word, inDirection: .layout(.left)),
+           let right = tokenizer.position(from: pos.start, toBoundary: .word, inDirection: .layout(.right)),
+           let range = textRange(from: left, to: right),
+           let text = text(in: range) {
+            return text
+        }
+        return nil
+    }
+
+    override func buildMenu(with builder: any UIMenuBuilder) {
+        super.buildMenu(with: builder)
+        builder.remove(menu: .autoFill)
+        builder.remove(menu: .share)
+        
+        if includeLookupSymbol {
+            if let selection = selectedTextRange, let word = getWordUnderSelection (pos: selection) {
+                // Need to callout and determine if this is:
+                // * Needs a lookup option
+                
+                let action = UIAction(title: "Lookup Symbol") { action in
+                    self.ptDelegate?.lookup(self, at: selection.start, word: word)
+                }
+                builder.replace(menu: .lookup, with: UIMenu(title: "", image: nil, identifier: nil, options: [.displayInline], children: [action]))
+            }
+        } else {
+            builder.remove(menu: .lookup)
+        }
+    }
+    
     // This class exists just so that we can get nice information at debug time
     class BreakpointView: UIView {
     }
@@ -444,7 +538,7 @@ class PTextView: TextView {
             if let tapLocation = container.closestPosition(to: CGPoint(x: location.x, y: location.y+container.contentOffset.y)) {
                 let tapOffset = container.offset(from: container.beginningOfDocument, to: tapLocation)
                 if let line = container.textLocation(at: tapOffset) {
-                    coordinator.gutterTap (container, line.lineNumber)
+                    coordinator.delegate.uitextViewGutterTapped(container, line: line.lineNumber)
                 }
             }
         }
@@ -485,7 +579,7 @@ class PTextView: TextView {
         keyboardAnchor = KeyboardAnchorView()
         keyboardAnchor.backgroundColor = .red
         keyboardAnchor.translatesAutoresizingMaskIntoConstraints = false
-
+        includeLookupSymbol = false
         super.init (frame: frame)
         overlayView.container = self
         keyboardAnchor.container = self
