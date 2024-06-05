@@ -501,11 +501,6 @@ class PTextView: TextView {
     class BreakpointView: UIView {
     }
     
-    // The view we are looking for is the TextInput.TextInputView.lineNumbersContainerView
-    func getHostView () -> UIView? {
-        subviews.dropFirst(4).first?.subviews.dropFirst(2).first
-    }
-    
     // We put this window on top of the textview, so we can capture taps on the gutter, which
     // we translate into enabling/disabling a breakpoint.
     class OverlayView: UIView {
@@ -604,13 +599,14 @@ class PTextView: TextView {
         super.layoutSubviews()
         let f = frame
         overlayView.frame = CGRect (x: 0, y: contentOffset.y, width: gutterWidth, height: f.height)
-        if let host = getHostView () {
-            if underlayView.superview == nil {
-                underlayView.frame = host.frame
-                host.addSubview(underlayView)
-            }
+        
+        let host = lineNumbersContainerView
+        if underlayView.superview == nil {
             underlayView.frame = host.frame
+            host.addSubview(underlayView)
         }
+        underlayView.frame = host.frame
+    
         bringSubviewToFront(overlayView)
         updateBreakpointView()
     }
