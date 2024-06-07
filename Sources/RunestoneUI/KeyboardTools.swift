@@ -113,8 +113,9 @@ public final class KeyboardToolsView: UIInputView {
                     textView.insertText("()")
                     textView.moveCursorLeft()
                 }),
+            // “”“
             KeyboardAccessoryButton(
-                title: "\"\"",
+                title: "\"\u{201C}a\u{201D}",
                 icon: "",
                 action: {
                     textView.insertText("\"\"")

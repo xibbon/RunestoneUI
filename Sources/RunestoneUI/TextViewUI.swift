@@ -57,6 +57,8 @@ public struct TextViewUI: UIViewRepresentable {
     @Environment(\.characterPairs) var characterPairs: [CharacterPair]
     @Environment(\.findInteraction) var findInteraction: Bool
     @Environment(\.includeLookupSymbol) var includeLookupSymbol: Bool
+    @Environment(\.autoCorrection) var autoCorrection: TextAutoCorrection
+    @Environment(\.spellChecking) var spellChecking: SpellCheckType
     
     @Binding var text: String
     @Binding var breakpoints: Set<Int>
@@ -109,6 +111,16 @@ public struct TextViewUI: UIViewRepresentable {
         tv.showLineBreaks = showSpaces
         tv.showTabs = context.coordinator.showTabs
         tv.highlightedLine = context.coordinator.highlightLine
+        tv.autocorrectionType = switch context.coordinator.autocorrectionType {
+        case .default:  UITextAutocorrectionType.default
+        case .yes: UITextAutocorrectionType.yes
+        case .no: UITextAutocorrectionType.no
+        }
+        tv.spellCheckingType = switch context.coordinator.spellcheckType {
+        case .default: UITextSpellCheckingType.default
+        case .yes: UITextSpellCheckingType.yes
+        case .no: UITextSpellCheckingType.no
+        }
 
         //tv.kern = 0.3
         tv.isLineWrappingEnabled = false
@@ -155,14 +167,23 @@ public struct TextViewUI: UIViewRepresentable {
         tv.showNonBreakingSpaces = showSpaces
         tv.showSoftLineBreaks = showSpaces
         tv.showLineBreaks = showSpaces
-    
+        tv.autocorrectionType = switch autoCorrection {
+        case .default:  UITextAutocorrectionType.default
+        case .yes: UITextAutocorrectionType.yes
+        case .no: UITextAutocorrectionType.no
+        }
+        tv.spellCheckingType = switch spellChecking {
+        case .default: UITextSpellCheckingType.default
+        case .yes: UITextSpellCheckingType.yes
+        case .no: UITextSpellCheckingType.no
+        }
         coordinator.showTabs = showTabs
         tv.showTabs = showTabs
         
         coordinator.showLineNumbers = showLineNumbers
         coordinator.highlightLine = highlightLine
         tv.showLineNumbers = showLineNumbers
-        
+
         tv.characterPairs = characterPairs
         coordinator.findInteraction = findInteraction
         tv.isFindInteractionEnabled = findInteraction
@@ -176,6 +197,8 @@ public struct TextViewUI: UIViewRepresentable {
         var showSpaces: Bool = false
         var showLineNumbers: Bool = true
         var highlightLine: Int? = nil
+        var autocorrectionType: TextAutoCorrection = .default
+        var spellcheckType: SpellCheckType = .default
         var findInteraction: Bool = true
         var text: Binding<String>
         var keyboardOffset: Binding<CGFloat>
@@ -288,6 +311,35 @@ public struct GlobalWidthKey: EnvironmentKey {
     public static let defaultValue: CGFloat = 0.0
 }
 
+/// The autocorrection behavior of TextViewUI
+public enum TextAutoCorrection {
+    /// Specifies an appropriate autocorrection behavior for the current script system.
+    case `default`
+    /// Enables autocorrection behavior.
+    case yes
+    /// Disables autocorrection behavior.
+    case no
+    
+}
+
+public struct AutoCorrectionKey: EnvironmentKey {
+    public static let defaultValue: TextAutoCorrection = .default
+}
+
+/// The spell-checking style for the TextViewUI
+public enum SpellCheckType {
+    /// Specifies the default spell checking behavior
+    case `default`
+    /// Enables spell-checking behavior.
+    case yes
+    /// Disables spell-checking behavior.
+    case no
+}
+
+public struct SpellCheckingKey: EnvironmentKey {
+    public static let defaultValue: SpellCheckType = .default
+}
+
 extension EnvironmentValues {
     public var language: TreeSitterLanguage? {
         get { self[LanguageKey.self] }
@@ -329,6 +381,16 @@ extension EnvironmentValues {
     public var globalWidth: CGFloat {
         get { self[GlobalWidthKey.self] }
         set { self[GlobalWidthKey.self] = newValue }
+    }
+    
+    public var spellChecking: SpellCheckType {
+        get { self[SpellCheckingKey.self] }
+        set { self[SpellCheckingKey.self] = newValue }
+    }
+
+    public var autoCorrection: TextAutoCorrection {
+        get { self[AutoCorrectionKey.self] }
+        set { self[AutoCorrectionKey.self] = newValue }
     }
 }
 
@@ -378,6 +440,16 @@ extension View {
     /// If you set this to false, you can not request the find UI from it.
     public func findInteraction (_ enable: Bool) -> some View {
         environment(\.findInteraction, enable)
+    }
+    
+    /// Controls the spell checking used by the TextViewUI
+    public func spellChecking(_ value: SpellCheckType) -> some View {
+        environment(\.spellChecking, value)
+    }
+
+    /// Controls the autocorrection used by the TextViewUI
+    public func autoCorrection(_ value: TextAutoCorrection) -> some View {
+        environment(\.autoCorrection, value)
     }
 }
 
