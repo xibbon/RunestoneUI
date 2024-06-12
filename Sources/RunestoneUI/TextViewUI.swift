@@ -59,6 +59,7 @@ public struct TextViewUI: UIViewRepresentable {
     @Environment(\.includeLookupSymbol) var includeLookupSymbol: Bool
     @Environment(\.autoCorrection) var autoCorrection: TextAutoCorrection
     @Environment(\.spellChecking) var spellChecking: SpellCheckType
+    @Environment(\.indentStrategy) var indentStrategy: IndentStrategy
     
     @Binding var text: String
     @Binding var breakpoints: Set<Int>
@@ -121,6 +122,7 @@ public struct TextViewUI: UIViewRepresentable {
         case .yes: UITextSpellCheckingType.yes
         case .no: UITextSpellCheckingType.no
         }
+        tv.indentStrategy = context.coordinator.indentStrategy
 
         //tv.kern = 0.3
         tv.isLineWrappingEnabled = false
@@ -178,6 +180,7 @@ public struct TextViewUI: UIViewRepresentable {
         case .no: UITextSpellCheckingType.no
         }
         coordinator.showTabs = showTabs
+        coordinator.indentStrategy = indentStrategy
         tv.showTabs = showTabs
         
         coordinator.showLineNumbers = showLineNumbers
@@ -206,6 +209,7 @@ public struct TextViewUI: UIViewRepresentable {
         let delegate: TextViewUIDelegate
         let commands: TextViewCommands
         var lastEnd: UITextPosition?
+        var indentStrategy: IndentStrategy = IndentStrategyKey.defaultValue
         
         init (text: Binding<String>, keyboardOffset: Binding<CGFloat>, delegate: TextViewUIDelegate, commands: TextViewCommands, includeLookupSymbol: Bool) {
             self.text = text
@@ -311,6 +315,10 @@ public struct GlobalWidthKey: EnvironmentKey {
     public static let defaultValue: CGFloat = 0.0
 }
 
+public struct IndentStrategyKey: EnvironmentKey {
+    public static let defaultValue: IndentStrategy = .tab(length: 4)
+}
+
 /// The autocorrection behavior of TextViewUI
 public enum TextAutoCorrection {
     /// Specifies an appropriate autocorrection behavior for the current script system.
@@ -392,6 +400,11 @@ extension EnvironmentValues {
         get { self[AutoCorrectionKey.self] }
         set { self[AutoCorrectionKey.self] = newValue }
     }
+
+    public var indentStrategy: IndentStrategy {
+        get { self[IndentStrategyKey.self] }
+        set { self[IndentStrategyKey.self] = newValue }
+    }
 }
 
 extension View {
@@ -450,6 +463,11 @@ extension View {
     /// Controls the autocorrection used by the TextViewUI
     public func autoCorrection(_ value: TextAutoCorrection) -> some View {
         environment(\.autoCorrection, value)
+    }
+
+    /// Strategy to use when indenting text, defaults to tabs using 4 spaces to be rendered
+    public func indentStrategy(_ value: IndentStrategy) -> some View {
+        environment(\.indentStrategy, value)
     }
 }
 
