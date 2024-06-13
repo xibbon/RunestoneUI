@@ -19,6 +19,8 @@ public protocol TextViewUIDelegate {
     func uitextViewGutterTapped (_ textView: TextView, line: Int)
     /// The user tapped on "Lookup Symbol", so perform something with the symbol that was extracted (provided in `word`)
     func uitextViewRequestWordLookup (_ textView: TextView, at: UITextPosition, word: String)
+    /// Invoked when the selectionchanges
+    func uitextViewDidChangeSelection (_ textView: TextView)
 }
 
 /// Default protocol implementaiton, does nothing
@@ -27,7 +29,7 @@ public extension TextViewUIDelegate{
     func uitextViewLoaded (_ textView: TextView) {}
     func uitextViewGutterTapped (_ textView: TextView, line: Int) {}
     func uitextViewRequestWordLookup (_ textView: TextView, at: UITextPosition, word: String) {}
-    
+    func uitextViewDidChangeSelection (_ textView: TextView) {}
 }
 /// SwiftUI wrapper for RuneStone's TextView
 ///
@@ -257,6 +259,10 @@ public struct TextViewUI: UIViewRepresentable {
             //                return
             //            }
             //            onChange (textView, newText, region, (start, end))
+        }
+        
+        public func textViewDidChangeSelection (_ textView: TextView) {
+            delegate.uitextViewDidChangeSelection(textView)
         }
         
         public func textView(_ textView: TextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
