@@ -65,7 +65,7 @@ public final class KeyboardToolsView: UIInputView {
                     textView.shiftLeft()
                 })],
                 action: {
-                    textView.shiftRight()
+                    textView.indent()
                     
                 })
             ,KeyboardAccessoryButton(
@@ -121,17 +121,23 @@ public final class KeyboardToolsView: UIInputView {
                     textView.insertText("\"\"")
                     textView.moveCursorLeft()
                 }),
-            KeyboardAccessoryButton(
-                title: "Move Left",
-                icon: "arrow.left",
-                action: {
-                    textView.moveCursorLeft()
-                    
-                    
-                }),
-            KeyboardAccessoryButton(title: "Move Right", icon: "arrow.right", action: {
-                textView.moveCursorRight()
+            KeyboardAccessoryButton(title: "leftright", icon: "", doubleButton: [
+                KeyboardAccessoryButton(
+                    title: "Move Left",
+                    icon: "arrow.left",
+                    action: {
+                        textView.moveCursorLeft()
+                        
+                        
+                    }),
+                KeyboardAccessoryButton(title: "Move Right",
+                                        icon: "arrow.right", action: {
+                    textView.moveCursorRight()
+                })
+            ], action: {
+                
             }),
+            
             KeyboardAccessoryButton(
                 title: "search",
                 icon: "magnifyingglass",
@@ -194,7 +200,133 @@ extension TextView {
                 self.selectedTextRange = newSelectedRange
             }
         }
+        
+    }
+    
+    func indent() {
+        guard let cursorPosition = self.selectedTextRange?.start else { return }
+        let beginning = self.beginningOfDocument
 
+        // Calculate the current cursor offset
+        let offset = self.offset(from: beginning, to: cursorPosition)
+
+        // Check if the cursor is at the start of a line or the first character
+        let isStartOfLine = isCursorAtStartOfLine(cursorPosition: cursorPosition)
+        if !isStartOfLine && offset != 0 {
+            handleNonStartOfLine(cursorPosition: cursorPosition)
+        }
+        
+        if isStartOfLine {
+            shiftRight()
+        }
+    }
+    
+    private func rangeOfLine(containing position: UITextPosition) -> UITextRange? {
+        let text = self.text
+        
+        // Get the current offset from the beginning of the document
+        let offset = self.offset(from: self.beginningOfDocument, to: position)
+        
+        // Find the start of the line
+        var lineStartOffset = offset
+        while lineStartOffset > 0 {
+            let index = text.index(text.startIndex, offsetBy: lineStartOffset - 1)
+            if text[index].isNewline {
+                break
+            }
+            lineStartOffset -= 1
+        }
+    
+        // Adjust to ignore leading whitespaces
+        while lineStartOffset < text.count {
+            let index = text.index(text.startIndex, offsetBy: lineStartOffset)
+            if !text[index].isWhitespace {
+                break
+            }
+            lineStartOffset += 1
+        }
+
+        // Find the end of the line
+        var lineEndOffset = offset
+        while lineEndOffset < text.count {
+            let index = text.index(text.startIndex, offsetBy: lineEndOffset)
+            if text[index].isNewline {
+                break
+            }
+            lineEndOffset += 1
+        }
+
+        // Convert offsets to text positions
+        let startPosition = self.position(from: self.beginningOfDocument, offset: lineStartOffset)
+        let endPosition = self.position(from: self.beginningOfDocument, offset: lineEndOffset)
+
+        if let startPosition = startPosition, let endPosition = endPosition {
+            return self.textRange(from: startPosition, to: endPosition)
+        }
+
+        return nil
+    }
+
+    private func isCursorAtStartOfLine(cursorPosition: UITextPosition) -> Bool {
+       guard let lineRange = self.rangeOfLine(containing: cursorPosition) else { return false }
+       let startOfLinePosition = lineRange.start
+       return self.compare(cursorPosition, to: startOfLinePosition) == .orderedSame
+   }
+    
+    
+    private func handleNonStartOfLine(cursorPosition: UITextPosition) {
+        // Get the range of the current word
+        let tokenizer = self.tokenizer
+        let range = tokenizer.rangeEnclosingPosition(cursorPosition, with: .word, inDirection: UITextDirection.storage(.forward))
+        
+        if let range = range {
+            let wordEndPosition = range.end
+            let wordStartPosition = range.start
+            if let selectedRange = self.selectedTextRange,
+               self.compare(selectedRange.start, to: wordStartPosition) == .orderedSame,
+               self.compare(selectedRange.end, to: wordEndPosition) == .orderedSame  {
+                // If the word is selected, move the cursor to the end of the word
+                self.selectedTextRange = self.textRange(from: wordEndPosition, to: wordEndPosition)
+            } else if self.compare(cursorPosition, to: wordEndPosition) == .orderedSame || self.compare(cursorPosition, to: wordStartPosition) == .orderedDescending {
+                // If the cursor is at the end of the word, select the next word
+                moveToNextWord(from: wordEndPosition)
+            } else {
+                
+                if let r = self.textRange(from: cursorPosition, to: wordEndPosition), isValidWordRange(r) {
+                    // If no word is selected, move the cursor to the end of the word
+                    self.selectedTextRange = r
+                } else {
+                    moveToNextWord(from: wordEndPosition)
+                }
+            }
+        }
+    }
+   
+    private func moveToNextWord(from position: UITextPosition) {
+        let tokenizer = self.tokenizer
+        var currentPosition = position
+        while let nextWordRange = tokenizer.rangeEnclosingPosition(currentPosition, with: .word, inDirection: UITextDirection.storage(.forward)) {
+            if isValidWordRange(nextWordRange) {
+                // Select the next valid word
+                self.selectedTextRange = nextWordRange
+                return
+            }
+            currentPosition = nextWordRange.end
+        }
+    }
+
+    private func isValidWordRange(_ range: UITextRange) -> Bool {
+        guard let text = self.text(in: range) else { return false }
+        let trimmedText = text
+        var validWordCharacters = CharacterSet.alphanumerics
+            validWordCharacters.insert(charactersIn: "_")
+        return !trimmedText.isEmpty && trimmedText.rangeOfCharacter(from: validWordCharacters.inverted) == nil
+    }
+}
+
+extension UITextDirection {
+    static func storage(_ direction: UITextStorageDirection) -> UITextDirection {
+        return UITextDirection(rawValue: direction.rawValue)
     }
 }
 
@@ -325,10 +457,46 @@ struct KeyboardToolsButton: View {
     var body: some View {
         GeometryReader { gr in
             Group {
-                if !buttonModel.icon.isEmpty {
-                    Image(systemName: buttonModel.icon)
+                if buttonModel.doubleButton.count < 2 {
+                    if !buttonModel.icon.isEmpty {
+                        Image(systemName: buttonModel.icon)
+                    } else {
+                        Text(buttonModel.title)
+                    }
                 } else {
-                    Text(buttonModel.title)
+                    HStack {
+                        let button1 = buttonModel.doubleButton[0]
+                        let button2 = buttonModel.doubleButton[1]
+                        
+                        HStack(spacing: 0) {
+                            Group {
+                                if !button1.icon.isEmpty {
+                                    Image(systemName: button1.icon)
+                                } else {
+                                    Text(button1.title)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .onTapGesture {
+                                button1.action()
+                            }
+                            
+                            Divider()
+                                .padding(.vertical, 8)
+                                    
+                            Group {
+                                if !button2.icon.isEmpty {
+                                    Image(systemName: button2.icon)
+                                } else {
+                                    Text(button2.title)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .onTapGesture {
+                                button2.action()
+                            }
+                        }
+                    }
                 }
             }
             .frame(width: buttonWidth,
@@ -384,6 +552,7 @@ struct KeyboardToolsButton: View {
                             .opacity(showextraOptions ? 1 : 0)
                         ,
                         alignment: .top)
+                   
             })
             .coordinateSpace(name: "Custom")
             .opacity(buttonModel.isEnabled ? 1 : 0.4)
@@ -430,8 +599,9 @@ struct KeyboardAccessoryButton: Identifiable {
     let title: String
     let icon: String
     var additionalOptions: [KeyboardAccessoryButton] = []
-    let action: () ->()
     var isEnabled: Bool = true
+    var doubleButton: [KeyboardAccessoryButton] = []
+    let action: () ->()
 }
 
 extension View {
