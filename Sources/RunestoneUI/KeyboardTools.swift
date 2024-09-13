@@ -20,65 +20,65 @@ public final class KeyboardToolsView: UIInputView {
         self.textView = textView
         let frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 44)
         let operationButtons = [
-            KeyboardAccessoryButton(title: "lessthan", icon: "lessthan", action: {
-                textView.insertText("<")
+            KeyboardAccessoryButton(title: "lessthan", icon: "lessthan", action: { [weak textView] in
+                textView?.insertText("<")
             }),
-            KeyboardAccessoryButton(title: "number", icon: "number", action: {
-                textView.insertText("#")
+            KeyboardAccessoryButton(title: "number", icon: "number", action: { [weak textView] in
+                textView?.insertText("#")
             }),
-            KeyboardAccessoryButton(title: "percent", icon: "percent", action: {
-                textView.insertText("%")
+            KeyboardAccessoryButton(title: "percent", icon: "percent", action: { [weak textView] in
+                textView?.insertText("%")
             }),
-            KeyboardAccessoryButton(title: "and", icon: "", action: {
-                textView.insertText("and")
+            KeyboardAccessoryButton(title: "and", icon: "", action: { [weak textView] in
+                textView?.insertText("and")
             }),
-            KeyboardAccessoryButton(title: "or", icon: "", action: {
-                textView.insertText("or")
+            KeyboardAccessoryButton(title: "or", icon: "", action: { [weak textView] in
+                textView?.insertText("or")
             }),
-            KeyboardAccessoryButton(title: "greaterthan", icon: "greaterthan", action: {
-                textView.insertText(">")
+            KeyboardAccessoryButton(title: "greaterthan", icon: "greaterthan", action: { [weak textView] in
+                textView?.insertText(">")
             }),
-            KeyboardAccessoryButton(title: "~", icon: "", action: {
-                textView.insertText("~")
+            KeyboardAccessoryButton(title: "~", icon: "", action: { [weak textView] in
+                textView?.insertText("~")
             }),
-            KeyboardAccessoryButton(title: "minus", icon: "minus", action: {
-                textView.insertText("-")
+            KeyboardAccessoryButton(title: "minus", icon: "minus", action: { [weak textView] in
+                textView?.insertText("-")
             }),
-            KeyboardAccessoryButton(title: "plus", icon: "plus", action: {
-                textView.insertText("+")
+            KeyboardAccessoryButton(title: "plus", icon: "plus", action: { [weak textView] in
+                textView?.insertText("+")
             }),
-            KeyboardAccessoryButton(title: "*", icon: "", action: {
-                textView.insertText("*")
+            KeyboardAccessoryButton(title: "*", icon: "", action: { [weak textView] in
+                textView?.insertText("*")
             }),
-            KeyboardAccessoryButton(title: "/", icon: "", action: {
-                textView.insertText("/")
+            KeyboardAccessoryButton(title: "/", icon: "", action: { [weak textView] in
+                textView?.insertText("/")
             }),
-            KeyboardAccessoryButton(title: "^", icon: "", action: {
-                textView.insertText("^")
+            KeyboardAccessoryButton(title: "^", icon: "", action: { [weak textView] in
+                textView?.insertText("^")
             }),
         ]
         let buttons = [
             KeyboardAccessoryButton(
                 title: "Tab Right",
                 icon: "arrow.right.to.line",
-                additionalOptions: [KeyboardAccessoryButton(title: "Tab Left", icon: "arrow.left.to.line", action: {
-                    textView.shiftLeft()
+                additionalOptions: [KeyboardAccessoryButton(title: "Tab Left", icon: "arrow.left.to.line", action: { [weak textView] in
+                    textView?.shiftLeft()
                 })],
-                action: {
-                    textView.indent()
+                action: { [weak textView] in
+                    textView?.indent()
                     
                 })
             ,KeyboardAccessoryButton(
                 title: "Undo",
                 icon: "arrow.uturn.backward",
-                action: {
-                    textView.undoManager?.undo()
+                action: { [weak textView] in
+                    textView?.undoManager?.undo()
                 }),
             KeyboardAccessoryButton(
                 title: "Redo",
                 icon: "arrow.uturn.forward",
-                action: {
-                    textView.undoManager?.redo()
+                action: { [weak textView] in
+                    textView?.undoManager?.redo()
                 }),
 //            KeyboardAccessoryButton(
 //                title: "Reference",
@@ -99,40 +99,40 @@ public final class KeyboardToolsView: UIInputView {
                 icon: "",
                 additionalOptions: [
                     KeyboardAccessoryButton(
-                        title: "{}", icon: "", action: {
-                            textView.insertText("{}")
-                            textView.moveCursorLeft()
+                        title: "{}", icon: "", action: { [weak textView] in
+                            textView?.insertText("{}")
+                            textView?.moveCursorLeft()
 
                         }),
                     KeyboardAccessoryButton(
-                        title: "[]", icon: "", action: {
-                            textView.insertText("[]")
-                            textView.moveCursorLeft()
+                        title: "[]", icon: "", action: { [weak textView] in
+                            textView?.insertText("[]")
+                            textView?.moveCursorLeft()
                         })],
-                action: {
-                    textView.insertText("()")
-                    textView.moveCursorLeft()
+                action: { [weak textView] in
+                    textView?.insertText("()")
+                    textView?.moveCursorLeft()
                 }),
             // “”“
             KeyboardAccessoryButton(
                 title: "\"\u{201C}a\u{201D}",
                 icon: "",
-                action: {
-                    textView.insertText("\"\"")
-                    textView.moveCursorLeft()
+                action: { [weak textView] in
+                    textView?.insertText("\"\"")
+                    textView?.moveCursorLeft()
                 }),
             KeyboardAccessoryButton(title: "leftright", icon: "", doubleButton: [
                 KeyboardAccessoryButton(
                     title: "Move Left",
                     icon: "arrow.left",
-                    action: {
-                        textView.moveCursorLeft()
+                    action: { [weak textView] in
+                        textView?.moveCursorLeft()
                         
                         
                     }),
                 KeyboardAccessoryButton(title: "Move Right",
-                                        icon: "arrow.right", action: {
-                    textView.moveCursorRight()
+                                        icon: "arrow.right", action: { [weak textView] in
+                    textView?.moveCursorRight()
                 })
             ], action: {
                 
@@ -147,8 +147,8 @@ public final class KeyboardToolsView: UIInputView {
             KeyboardAccessoryButton(
                 title: "Dismiss",
                 icon: "keyboard.chevron.compact.down",
-                action: {
-                    textView.resignFirstResponder()
+                action: { [weak textView] in
+                    textView?.resignFirstResponder()
                 })
             
         ]
@@ -165,7 +165,14 @@ public final class KeyboardToolsView: UIInputView {
     }
 
     deinit {
+        cleanup()
+    }
+    
+    /// This is needed because UIKit retains inputAccessoryView
+    /// it is bug on UIKit side and only option is to cleanup resources and leave empty objects hanging
+    func cleanup() {
         NotificationCenter.default.removeObserver(self)
+        self.keyboardToolsObservable.buttons = []
     }
     
     private func setupView() {

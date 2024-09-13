@@ -195,6 +195,12 @@ public struct TextViewUI: UIViewRepresentable {
         coordinator.commands.textView = tv
     }
     
+    public static func dismantleUIView(_ uiView: TextView, coordinator: TextViewCoordinator) {
+        if let toolsInputView = uiView.getUnderlyingInputAccessoryView() as? KeyboardToolsView {
+            toolsInputView.cleanup()
+        }
+    }
+    
     public class TextViewCoordinator: NSObject, TextViewDelegate, UIScrollViewDelegate, PTextViewDelegate, UIEditMenuInteractionDelegate {
         var language: TreeSitterLanguage? = nil
         var lineHeightMultiplier: Double = 1.3
