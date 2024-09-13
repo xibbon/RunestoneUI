@@ -115,7 +115,7 @@ public final class KeyboardToolsView: UIInputView {
                 }),
             // “”“
             KeyboardAccessoryButton(
-                title: "\"\u{201C}a\u{201D}",
+                title: "\u{201C}a\u{201D}",
                 icon: "",
                 action: { [weak textView] in
                     textView?.insertText("\"\"")
