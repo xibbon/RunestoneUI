@@ -142,7 +142,7 @@ public final class KeyboardToolsView: UIInputView {
                 title: "search",
                 icon: "magnifyingglass",
                 action: {
-                    //TODO: Missing Implementation
+                    textView.findInteraction?.presentFindNavigator(showingReplace: false)
                 }),
             KeyboardAccessoryButton(
                 title: "Dismiss",
