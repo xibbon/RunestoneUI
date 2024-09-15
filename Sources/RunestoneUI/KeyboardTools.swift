@@ -465,51 +465,68 @@ struct KeyboardToolsButton: View {
         GeometryReader { gr in
             Group {
                 if buttonModel.doubleButton.count < 2 {
-                    if !buttonModel.icon.isEmpty {
-                        Image(systemName: buttonModel.icon)
-                    } else {
-                        Text(buttonModel.title)
+                    Button {
+                        self.buttonModel.action()
+                        showextraOptions = false
+                    } label: {
+                        Group {
+                            if !buttonModel.icon.isEmpty {
+                                Image(systemName: buttonModel.icon)
+                            } else {
+                                Text(buttonModel.title)
+                            }
+                        }
+                        .frame(width: buttonWidth,
+                               height: KeyboardToolsButton.buttonHeight)
+                        .background(isSelected ? Color(uiColor: .systemGray2) : Color(uiColor: .systemGray5))
+                        .cornerRadius(5)
                     }
+                    .buttonStyle(.plain)
+
+                    
                 } else {
                     HStack {
                         let button1 = buttonModel.doubleButton[0]
                         let button2 = buttonModel.doubleButton[1]
                         
-                        HStack(spacing: 0) {
-                            Group {
-                                if !button1.icon.isEmpty {
-                                    Image(systemName: button1.icon)
-                                } else {
-                                    Text(button1.title)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .onTapGesture {
+                        HStack(spacing: 2) {
+                            Button {
                                 button1.action()
-                            }
-                            
-                            Divider()
-                                .padding(.vertical, 8)
-                                    
-                            Group {
-                                if !button2.icon.isEmpty {
-                                    Image(systemName: button2.icon)
-                                } else {
-                                    Text(button2.title)
+                            } label: {
+                                Group {
+                                    if !button1.icon.isEmpty {
+                                        Image(systemName: button1.icon)
+                                    } else {
+                                        Text(button1.title)
+                                    }
                                 }
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(isSelected ? Color(uiColor: .systemGray2) : Color(uiColor: .systemGray5))
                             }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .onTapGesture {
+                            .buttonStyle(.plain)
+                        
+                            Button {
                                 button2.action()
+                            } label: {
+                                Group {
+                                    if !button2.icon.isEmpty {
+                                        Image(systemName: button2.icon)
+                                    } else {
+                                        Text(button2.title)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(isSelected ? Color(uiColor: .systemGray2) : Color(uiColor: .systemGray5))
                             }
+                            .buttonStyle(.plain)
+                            
                         }
+                        .frame(width: buttonWidth,
+                               height: KeyboardToolsButton.buttonHeight)
+                        .cornerRadius(5)
                     }
                 }
             }
-            .frame(width: buttonWidth,
-                   height: KeyboardToolsButton.buttonHeight)
-            .background(isSelected ? Color(uiColor: .systemGray2) : Color(uiColor: .systemGray5))
-            .cornerRadius(5)
             .overlay(alignment: .topTrailing, content: {
                 if additionalOptionsCount > 0 {
                     Circle()
@@ -521,11 +538,6 @@ struct KeyboardToolsButton: View {
             .onChange(of: gr.size, { oldValue, newValue in
                 self.frame = gr.frame(in: .global)
             })
-            .onTapGesture {
-                // main button action, gets called on tap
-                self.buttonModel.action()
-                showextraOptions = false
-            }
             .ifCond(additionalOptionsCount > 0, transform: { view in
                 view
                     .simultaneousGesture(
@@ -550,6 +562,8 @@ struct KeyboardToolsButton: View {
                         AdditionalOptionsGrid(buttons: buttonModel.additionalOptions,
                                               location: dragLocation,
                                               buttonWidth: buttonWidth,
+                                              gridSize: CGSize(width: gridWidth,
+                                                               height: gridHeight),
                                               selected: $selected)
                             .background(Color(uiColor: .systemBackground))
                             .cornerRadius(5)
@@ -574,28 +588,55 @@ struct AdditionalOptionsGrid: View {
     let location: CGPoint?
     static let spacing: CGFloat =  8
     let buttonWidth: CGFloat
+    var gridSize: CGSize
     @Binding var selected: KeyboardAccessoryButton?
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: buttonWidth,
-                                               maximum: buttonWidth),
-                                     spacing: AdditionalOptionsGrid.spacing)],
-                  spacing: AdditionalOptionsGrid.spacing, content: {
-            ForEach(buttons) { button in
-                GeometryReader { gr in
-                    KeyboardToolsButton(buttonModel: button, isSelected: button.id == selected?.id, buttonWidth: buttonWidth)
-                        .onChange(of: location) { oldValue, newValue in
-                            guard let location else { return }
-                            // checks weather drag gesture is over current button
-                            let targetFrame = gr.frame(in: .named("Custom"))
-                            if targetFrame.contains(location) {
-                                self.selected = button
-                            }
+        Grid {
+            ForEach(0..<rows) { row in
+                GridRow {
+                    ForEach(0..<cols(row: row)) { col in
+                        let button = getButton(col: col, row: row)
+                        GeometryReader { gr in
+                            KeyboardToolsButton(buttonModel: button, isSelected: button.id == selected?.id, buttonWidth: buttonWidth)
+                                .onChange(of: location) { oldValue, newValue in
+                                    guard let location else { return }
+                                    // checks weather drag gesture is over current button
+                                    let targetFrame = gr.frame(in: .named("Custom"))
+                                    if targetFrame.contains(location) {
+                                        self.selected = button
+                                    }
+                                }
                         }
+                        .frame(height: KeyboardToolsButton.buttonHeight)
+                    }
                 }
-                .frame(height: KeyboardToolsButton.buttonHeight)
             }
-        })
+        }
         .padding(AdditionalOptionsGrid.spacing)
+    }
+    
+    func getButton(col: Int, row: Int) -> KeyboardAccessoryButton {
+        return buttons[Int(buttons.count / rows) * row + col]
+    }
+    
+    var rows: Int {
+        let r = Int(gridSize.height / KeyboardToolsButton.buttonHeight)
+        return r
+    }
+    
+    func cols(row: Int) -> Int {
+        let wholeRowColumnCount = Int(buttons.count / rows)
+        if row == rows - 1 {
+            // this is number of elements if row is incomplete
+            let rest = buttons.count % rows
+            if rest != 0 {
+                return rest
+            } else {
+                return wholeRowColumnCount
+            }
+        } else {
+            return wholeRowColumnCount
+        }
     }
 }
 

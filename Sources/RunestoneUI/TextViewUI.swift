@@ -133,11 +133,14 @@ public struct TextViewUI: UIViewRepresentable {
         //tv.pageGuideColumn = 80
         tv.autocorrectionType = .no
         tv.autocapitalizationType = .none
+        tv.keyboardType = .alphabet
         tv.smartQuotesType = .no
         tv.smartDashesType = .no
         tv.characterPairs = characterPairs
         tv.lineSelectionDisplayType = .line
         #if os(iOS)
+            tv.inputAssistantItem.leadingBarButtonGroups = []
+            tv.inputAssistantItem.trailingBarButtonGroups = []
             tv.inputAccessoryView = KeyboardToolsView(textView: tv)
         #endif
         
