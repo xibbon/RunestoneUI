@@ -497,20 +497,24 @@ public class TextViewCommands {
     /// The textview that provides the backing services
     public weak var textView: TextView? {
         didSet {
-            if let pending = pendingGoto {
+            if textView != nil, let pending = pendingGoto {
+                let completion = pendingGotoCompletion
                 pendingGoto = nil
                 DispatchQueue.main.async {
                     self.requestGoto(line: pending)
+                    completion?()
                 }
             }
         }
     }
 
     var pendingGoto: Int? = nil
+    var pendingGotoCompletion: (() -> ())? = nil
 
     /// Requests that the TextView navigates to the specified line
-    public func requestGoto(line: Int) {
+    public func requestGoto(line: Int, completion: (() -> ())? = nil) {
         guard let textView else {
+            pendingGotoCompletion = completion
             pendingGoto = line
             return
         }
@@ -520,6 +524,9 @@ public class TextViewCommands {
             // same thing for another workaround related to the caret position
             textView.resignFirstResponder()
             textView.becomeFirstResponder()
+            if let completion {
+                completion()
+            }
         }
     }
 
@@ -547,7 +554,26 @@ public class TextViewCommands {
     public func replace(_ range: UITextRange, withText text: String) {
         textView?.replace(range, withText: text)
     }
-    
+
+    /// Replaces the `text` in the specified `line` with the provided `withText`, the line is matched based on the .regularExpression/.caseInsensitive bits in NSString.CompareOptions, other options are ignored
+    public func replaceTextAt (line: Int, text: String, withText: String, options: NSString.CompareOptions) {
+        guard let textView else { return }
+        guard let lineLoc = textView.location(at: TextLocation(lineNumber: line, column: 0)),
+              let endLocP1 = textView.location(at: TextLocation(lineNumber: line+1, column: 0)),
+              endLocP1 > 0 else {
+            return
+        }
+        let sq = SearchQuery(text: text, matchMethod: options.contains(.regularExpression) ? .regularExpression : .contains, isCaseSensitive: !options.contains(.caseInsensitive), range: NSRange(location: lineLoc, length: endLocP1))
+        let results = textView.search(for: sq, replacingMatchesWith: withText)
+
+        // TODO: we currently only handle in the UI the first element of a match, not multiple elements per line
+        guard let op = results.first else {
+            return
+        }
+        let batch = BatchReplaceSet(replacements: [BatchReplaceSet.Replacement(range: op.range, text: op.replacementText)])
+        textView.replaceText(in: batch)
+    }
+
     /// The current selection range of the text view as a UITextRange.
     public var selectedTextRange: UITextRange? {
         get {
