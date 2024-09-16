@@ -495,11 +495,25 @@ public class TextViewCommands {
     public var keyboardAnchor: UIView?
     
     /// The textview that provides the backing services
-    public weak var textView: TextView?
-    
+    public weak var textView: TextView? {
+        didSet {
+            if let pending = pendingGoto {
+                pendingGoto = nil
+                DispatchQueue.main.async {
+                    self.requestGoto(line: pending)
+                }
+            }
+        }
+    }
+
+    var pendingGoto: Int? = nil
+
     /// Requests that the TextView navigates to the specified line
     public func requestGoto(line: Int) {
-        guard let textView else { return }
+        guard let textView else {
+            pendingGoto = line
+            return
+        }
         if textView.goToLine(line) {
             // For some reason goToLine does not always update the cursor position,
             // not really a problem, because textView.goToLine already does this
