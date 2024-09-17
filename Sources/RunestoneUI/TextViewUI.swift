@@ -563,7 +563,7 @@ public class TextViewCommands {
               endLocP1 > 0 else {
             return
         }
-        let sq = SearchQuery(text: text, matchMethod: options.contains(.regularExpression) ? .regularExpression : .contains, isCaseSensitive: !options.contains(.caseInsensitive), range: NSRange(location: lineLoc, length: endLocP1))
+        let sq = SearchQuery(text: text, matchMethod: options.contains(.regularExpression) ? .regularExpression : .contains, isCaseSensitive: !options.contains(.caseInsensitive), range: NSRange(location: lineLoc, length: endLocP1-lineLoc))
         let results = textView.search(for: sq, replacingMatchesWith: withText)
 
         // TODO: we currently only handle in the UI the first element of a match, not multiple elements per line
