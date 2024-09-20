@@ -18,7 +18,6 @@ public final class KeyboardToolsView: UIInputView {
     private let keyboardToolsObservable: KeyboardToolsObservable
     public init(textView: TextView) {
         self.textView = textView
-        let frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 44)
         let operationButtons = [
             KeyboardAccessoryButton(title: "lessthan", icon: "lessthan", action: { [weak textView] in
                 textView?.insertText("<")
@@ -153,7 +152,9 @@ public final class KeyboardToolsView: UIInputView {
             
         ]
         self.keyboardToolsObservable = KeyboardToolsObservable(buttons: buttons)
-        super.init(frame: frame, inputViewStyle: .keyboard)
+        super.init(frame: CGRect.zero, inputViewStyle: .keyboard)
+        self.backgroundColor = .systemBackground
+        self.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 64 + self.safeAreaInsets.bottom)
         setupView()
         //
         // Do not track the checkpoint one for our purposes, since it would be triggered when the undo/redo state is changed,
@@ -187,8 +188,8 @@ public final class KeyboardToolsView: UIInputView {
         updateUndoRedoButtonStates()
         NSLayoutConstraint.activate([
             view.leadingAnchor.constraint(equalTo: leadingAnchor),
-            view.topAnchor.constraint(equalTo: topAnchor),
-            view.bottomAnchor.constraint(equalTo: bottomAnchor),
+            view.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+            view.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor),
             view.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
     }
