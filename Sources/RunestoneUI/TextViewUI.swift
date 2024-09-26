@@ -392,7 +392,7 @@ extension View {
     }
 
     /// Determines what should happen to the trailing component of a character pair when deleting the leading component.
-    public func characterPairTrailingComponentDeletionMode(_ value: CharacterPairTrailingComponentDeletionMode) {
+    public func characterPairTrailingComponentDeletionMode(_ value: CharacterPairTrailingComponentDeletionMode) -> some View {
         environment(\.characterPairTrailingComponentDeletionMode, value)
     }
 }
