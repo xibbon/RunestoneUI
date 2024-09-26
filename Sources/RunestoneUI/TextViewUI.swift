@@ -220,8 +220,8 @@ public struct TextViewUI: UIViewRepresentable {
         let delegate: TextViewUIDelegate
         let commands: TextViewCommands
         var lastEnd: UITextPosition?
-        var indentStrategy: IndentStrategy = IndentStrategyKey.defaultValue
-        
+        var indentStrategy: IndentStrategy = .tab(length: 4)
+
         init (text: Binding<String>, keyboardOffset: Binding<CGFloat>, delegate: TextViewUIDelegate, commands: TextViewCommands, includeLookupSymbol: Bool) {
             self.text = text
             self.keyboardOffset = keyboardOffset
@@ -289,50 +289,6 @@ public struct TextViewUI: UIViewRepresentable {
         }
     }
 }
- 
-public struct LanguageKey : EnvironmentKey {
-    public static let defaultValue: TreeSitterLanguage? = nil
-}
-
-public struct LineHeightMultiplierKey : EnvironmentKey {
-    public static let defaultValue: Double = 1.0
-}
-
-public struct ShowLineNumbersKey: EnvironmentKey {
-    public static let defaultValue: Bool = true
-}
-
-public struct IncludeLookupSymbolKey: EnvironmentKey {
-    public static let defaultValue: Bool = false
-}
-
-public struct HighlightLineKey: EnvironmentKey {
-    public static let defaultValue: Int? = nil
-}
-
-public struct ShowTabsKey: EnvironmentKey {
-    public static let defaultValue: Bool = false
-}
-
-public struct ShowSpacesKey: EnvironmentKey {
-    public static let defaultValue: Bool = false
-}
-
-public struct CharacterPairsKey: EnvironmentKey {
-    public static let defaultValue: [CharacterPair] = []
-}
-
-public struct FindInteractionKey: EnvironmentKey {
-    public static let defaultValue: Bool = true
-}
-
-public struct GlobalWidthKey: EnvironmentKey {
-    public static let defaultValue: CGFloat = 0.0
-}
-
-public struct IndentStrategyKey: EnvironmentKey {
-    public static let defaultValue: IndentStrategy = .tab(length: 4)
-}
 
 /// The autocorrection behavior of TextViewUI
 public enum TextAutoCorrection {
@@ -345,10 +301,6 @@ public enum TextAutoCorrection {
     
 }
 
-public struct AutoCorrectionKey: EnvironmentKey {
-    public static let defaultValue: TextAutoCorrection = .default
-}
-
 /// The spell-checking style for the TextViewUI
 public enum SpellCheckType {
     /// Specifies the default spell checking behavior
@@ -359,67 +311,21 @@ public enum SpellCheckType {
     case no
 }
 
-public struct SpellCheckingKey: EnvironmentKey {
-    public static let defaultValue: SpellCheckType = .default
-}
-
 extension EnvironmentValues {
-    public var language: TreeSitterLanguage? {
-        get { self[LanguageKey.self] }
-        set { self[LanguageKey.self] = newValue }
-    }
-    public var lineHeightMultiplier: Double {
-        get { self[LineHeightMultiplierKey.self] }
-        set { self[LineHeightMultiplierKey.self] = newValue }
-    }
-    public var showSpaces: Bool {
-        get { self[ShowSpacesKey.self] }
-        set { self[ShowSpacesKey.self] = newValue }
-    }
-    public var showTabs: Bool {
-        get { self[ShowTabsKey.self] }
-        set { self[ShowTabsKey.self] = newValue }
-    }
-    public var showLineNumbers: Bool {
-        get { self[ShowLineNumbersKey.self] }
-        set { self[ShowLineNumbersKey.self] = newValue }
-    }
-    public var includeLookupSymbol: Bool {
-        get { self[IncludeLookupSymbolKey.self] }
-        set { self[IncludeLookupSymbolKey.self] = newValue }
-    }
-    public var highlightLine: Int? {
-        get { self[HighlightLineKey.self] }
-        set { self[HighlightLineKey.self] = newValue }
-    }
-    public var characterPairs: [CharacterPair] {
-        get { self[CharacterPairsKey.self] }
-        set { self[CharacterPairsKey.self] = newValue }
-    }
-    public var findInteraction: Bool {
-        get { self[FindInteractionKey.self] }
-        set { self[FindInteractionKey.self] = newValue }
-    }
-    
-    public var globalWidth: CGFloat {
-        get { self[GlobalWidthKey.self] }
-        set { self[GlobalWidthKey.self] = newValue }
-    }
-    
-    public var spellChecking: SpellCheckType {
-        get { self[SpellCheckingKey.self] }
-        set { self[SpellCheckingKey.self] = newValue }
-    }
-
-    public var autoCorrection: TextAutoCorrection {
-        get { self[AutoCorrectionKey.self] }
-        set { self[AutoCorrectionKey.self] = newValue }
-    }
-
-    public var indentStrategy: IndentStrategy {
-        get { self[IndentStrategyKey.self] }
-        set { self[IndentStrategyKey.self] = newValue }
-    }
+    @Entry public var language: TreeSitterLanguage? = nil
+    @Entry public var lineHeightMultiplier: Double = 1.0
+    @Entry public var showSpaces: Bool = false
+    @Entry public var showTabs: Bool = false
+    @Entry public var showLineNumbers: Bool = true
+    @Entry public var includeLookupSymbol: Bool = false
+    @Entry public var highlightLine: Int? = nil
+    @Entry public var characterPairs: [CharacterPair] = []
+    @Entry public var findInteraction: Bool = true
+    @Entry public var globalWidth: CGFloat = 0.0
+    @Entry public var spellChecking: SpellCheckType = .default
+    @Entry public var autoCorrection: TextAutoCorrection = .default
+    @Entry public var indentStrategy: IndentStrategy = .tab(length: 4)
+    @Entry public var characterPairTrailingComponentDeletionMode: CharacterPairTrailingComponentDeletionMode = .disabled
 }
 
 extension View {
@@ -483,6 +389,11 @@ extension View {
     /// Strategy to use when indenting text, defaults to tabs using 4 spaces to be rendered
     public func indentStrategy(_ value: IndentStrategy) -> some View {
         environment(\.indentStrategy, value)
+    }
+
+    /// Determines what should happen to the trailing component of a character pair when deleting the leading component.
+    public func characterPairTrailingComponentDeletionMode(_ value: CharacterPairTrailingComponentDeletionMode) {
+        environment(\.characterPairTrailingComponentDeletionMode, value)
     }
 }
 
