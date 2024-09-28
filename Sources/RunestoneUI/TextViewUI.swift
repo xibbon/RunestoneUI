@@ -62,7 +62,7 @@ public struct TextViewUI: UIViewRepresentable {
     @Environment(\.autoCorrection) var autoCorrection: TextAutoCorrection
     @Environment(\.spellChecking) var spellChecking: SpellCheckType
     @Environment(\.indentStrategy) var indentStrategy: IndentStrategy
-    
+    @Environment(\.characterPairTrailingComponentDeletionMode) var characterPairTrailingComponentDeletionMode: CharacterPairTrailingComponentDeletionMode
     @Binding var text: String
     @Binding var breakpoints: Set<Int>
     @Binding var keyboardOffset: CGFloat
@@ -125,7 +125,7 @@ public struct TextViewUI: UIViewRepresentable {
         case .no: UITextSpellCheckingType.no
         }
         tv.indentStrategy = context.coordinator.indentStrategy
-
+        tv.characterPairTrailingComponentDeletionMode = context.coordinator.characterPairTrailingComponentDeletionMode
         //tv.kern = 0.3
         tv.isLineWrappingEnabled = false
         tv.gutterMinimumCharacterCount = 3
@@ -186,8 +186,10 @@ public struct TextViewUI: UIViewRepresentable {
         }
         coordinator.showTabs = showTabs
         coordinator.indentStrategy = indentStrategy
+        coordinator.characterPairTrailingComponentDeletionMode = characterPairTrailingComponentDeletionMode
         tv.showTabs = showTabs
-        
+        tv.characterPairTrailingComponentDeletionMode = characterPairTrailingComponentDeletionMode
+
         coordinator.showLineNumbers = showLineNumbers
         coordinator.highlightLine = highlightLine
         tv.showLineNumbers = showLineNumbers
@@ -221,6 +223,7 @@ public struct TextViewUI: UIViewRepresentable {
         let commands: TextViewCommands
         var lastEnd: UITextPosition?
         var indentStrategy: IndentStrategy = .tab(length: 4)
+        var characterPairTrailingComponentDeletionMode: CharacterPairTrailingComponentDeletionMode = .immediatelyFollowingLeadingComponent
 
         init (text: Binding<String>, keyboardOffset: Binding<CGFloat>, delegate: TextViewUIDelegate, commands: TextViewCommands, includeLookupSymbol: Bool) {
             self.text = text
