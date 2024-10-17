@@ -192,6 +192,7 @@ public struct TextViewUI: UIViewRepresentable {
 
         coordinator.showLineNumbers = showLineNumbers
         coordinator.highlightLine = highlightLine
+        tv.highlightedLine = highlightLine
         tv.showLineNumbers = showLineNumbers
 
         tv.characterPairs = characterPairs
@@ -753,3 +754,20 @@ class PTextView: TextView {
         }
     }
 }
+
+#if DEBUG
+struct DemoPreview: View, TextViewUIDelegate {
+    @State var text = "Hello\n\tWorld\nCat"
+
+    var body: some View {
+        TextViewUI(text: $text, commands: TextViewCommands(), delegate: self)
+            .highlightLine(0)
+            .showTabs(true)
+    }
+
+}
+
+#Preview {
+    DemoPreview()
+}
+#endif
