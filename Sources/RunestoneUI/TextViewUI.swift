@@ -62,6 +62,7 @@ public struct TextViewUI: UIViewRepresentable {
     @Environment(\.autoCorrection) var autoCorrection: TextAutoCorrection
     @Environment(\.spellChecking) var spellChecking: SpellCheckType
     @Environment(\.indentStrategy) var indentStrategy: IndentStrategy
+    @Environment(\.lineWrappingEnabled) var lineWrappingEnabled: Bool
     @Environment(\.characterPairTrailingComponentDeletionMode) var characterPairTrailingComponentDeletionMode: CharacterPairTrailingComponentDeletionMode
     @Binding var text: String
     @Binding var breakpoints: Set<Int>
@@ -127,7 +128,7 @@ public struct TextViewUI: UIViewRepresentable {
         tv.indentStrategy = context.coordinator.indentStrategy
         tv.characterPairTrailingComponentDeletionMode = context.coordinator.characterPairTrailingComponentDeletionMode
         //tv.kern = 0.3
-        tv.isLineWrappingEnabled = false
+        tv.isLineWrappingEnabled = context.coordinator.lineWrappingEnabled
         tv.gutterMinimumCharacterCount = 3
         //tv.showPageGuide = true
         //tv.pageGuideColumn = 80
@@ -187,13 +188,15 @@ public struct TextViewUI: UIViewRepresentable {
         coordinator.showTabs = showTabs
         coordinator.indentStrategy = indentStrategy
         coordinator.characterPairTrailingComponentDeletionMode = characterPairTrailingComponentDeletionMode
+        coordinator.lineWrappingEnabled = lineWrappingEnabled
         tv.showTabs = showTabs
         tv.characterPairTrailingComponentDeletionMode = characterPairTrailingComponentDeletionMode
-
+        
         coordinator.showLineNumbers = showLineNumbers
         coordinator.highlightLine = highlightLine
         tv.highlightedLine = highlightLine
         tv.showLineNumbers = showLineNumbers
+        tv.isLineWrappingEnabled = coordinator.lineWrappingEnabled
 
         tv.characterPairs = characterPairs
         coordinator.findInteraction = findInteraction
@@ -210,6 +213,7 @@ public struct TextViewUI: UIViewRepresentable {
     public class TextViewCoordinator: NSObject, TextViewDelegate, UIScrollViewDelegate, PTextViewDelegate, UIEditMenuInteractionDelegate {
         var language: TreeSitterLanguage? = nil
         var lineHeightMultiplier: Double = 1.3
+        var lineWrappingEnabled: Bool = true
         var showTabs: Bool = false
         var showSpaces: Bool = false
         var showLineNumbers: Bool = true
@@ -323,6 +327,7 @@ extension EnvironmentValues {
     @Entry public var showLineNumbers: Bool = true
     @Entry public var includeLookupSymbol: Bool = false
     @Entry public var highlightLine: Int? = nil
+    @Entry public var lineWrappingEnabled: Bool = true
     @Entry public var characterPairs: [CharacterPair] = []
     @Entry public var findInteraction: Bool = true
     @Entry public var globalWidth: CGFloat = 0.0
@@ -373,7 +378,12 @@ extension View {
     public func characterPairs (_ value: [CharacterPair]) -> some View {
         environment(\.characterPairs, value)
     }
-    
+
+    /// When line wrapping is disabled, users can scroll the text view horizontally to see the entire line.
+    public func lineWrappingEnabled(_ value: Bool) -> some View {
+        environment(\.lineWrappingEnabled, value)
+    }
+
     /// Controls whether the built-in find-interaction UI is shown on the TextViewUI, defaults to true.
     /// If you set this to false, you can not request the find UI from it.
     public func findInteraction (_ enable: Bool) -> some View {
