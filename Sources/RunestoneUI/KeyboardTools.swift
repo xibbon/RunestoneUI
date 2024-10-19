@@ -242,19 +242,25 @@ extension TextView {
         // Find the start of the line
         var lineStartOffset = offset
         while lineStartOffset > 0 {
+            
             let index = text.index(text.startIndex, offsetBy: lineStartOffset - 1)
             if text[index].isNewline {
                 break
             }
+
             lineStartOffset -= 1
         }
     
         // Adjust to ignore leading whitespaces
         while lineStartOffset < text.count {
+            
             let index = text.index(text.startIndex, offsetBy: lineStartOffset)
-            if !text[index].isWhitespace {
+            // asciiValue == 10 was treated as white space wich made wrong canculation
+            // about rangeOfLine so additional check was added
+            if !(text[index].isWhitespace) || text[index].asciiValue == 10 {
                 break
             }
+
             lineStartOffset += 1
         }
 
@@ -265,6 +271,7 @@ extension TextView {
             if text[index].isNewline {
                 break
             }
+    
             lineEndOffset += 1
         }
 
@@ -280,9 +287,13 @@ extension TextView {
     }
 
     private func isCursorAtStartOfLine(cursorPosition: UITextPosition) -> Bool {
-       guard let lineRange = self.rangeOfLine(containing: cursorPosition) else { return false }
-       let startOfLinePosition = lineRange.start
-       return self.compare(cursorPosition, to: startOfLinePosition) == .orderedSame
+        guard let lineRange = self.rangeOfLine(containing: cursorPosition) else { return false }
+        let startOfLinePosition = lineRange.start
+        let beginning = self.beginningOfDocument
+
+        // Calculate the current cursor offset
+        let offset = self.offset(from: beginning, to: startOfLinePosition)
+        return self.compare(cursorPosition, to: startOfLinePosition) == .orderedSame
    }
     
     
@@ -321,6 +332,10 @@ extension TextView {
             if isValidWordRange(nextWordRange) {
                 // Select the next valid word
                 self.selectedTextRange = nextWordRange
+                return
+            }
+            // if we are at end and didn't find next word return
+            if compare(currentPosition, to: nextWordRange.end) == .orderedSame {
                 return
             }
             currentPosition = nextWordRange.end
