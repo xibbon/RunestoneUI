@@ -682,7 +682,7 @@ class PTextView: TextView {
     }
     
     var breakpointViews: [Int:UIView] = [:]
-    var breakpoints = Set<Int>()
+    
     
     func setBreakpoints (new: Set<Int>) {
         let removed = breakpoints.subtracting(new)
