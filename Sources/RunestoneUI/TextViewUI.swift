@@ -295,6 +295,10 @@ public struct TextViewUI: UIViewRepresentable {
         func updateKeyboardLocation (_ textView: PTextView, _ location: CGFloat) {
             keyboardOffset.wrappedValue = location - textView.contentOffset.y
         }
+        
+        public func textView(_ textView: TextView, canReplaceTextIn highlightedRange: HighlightedRange) -> Bool {
+            return true
+        }
     }
 }
 
