@@ -21,6 +21,8 @@ public protocol TextViewUIDelegate {
     func uitextViewRequestWordLookup (_ textView: TextView, at: UITextPosition, word: String)
     /// Invoked when the selectionchanges
     func uitextViewDidChangeSelection (_ textView: TextView)
+    /// Invoked when virtual keyboard inserts return and determines weather to insert completion as result to return
+    func uitextViewTryCompletion() -> Bool
 }
 
 /// Default protocol implementaiton, does nothing
@@ -30,6 +32,7 @@ public extension TextViewUIDelegate{
     func uitextViewGutterTapped (_ textView: TextView, line: Int) {}
     func uitextViewRequestWordLookup (_ textView: TextView, at: UITextPosition, word: String) {}
     func uitextViewDidChangeSelection (_ textView: TextView) {}
+    func uitextViewTryCompletion() -> Bool { return false }
 }
 /// SwiftUI wrapper for RuneStone's TextView
 ///
@@ -298,6 +301,10 @@ public struct TextViewUI: UIViewRepresentable {
         
         public func textView(_ textView: TextView, canReplaceTextIn highlightedRange: HighlightedRange) -> Bool {
             return true
+        }
+        
+        public func textViewTryCompletion() -> Bool {
+            return delegate.uitextViewTryCompletion()
         }
     }
 }
