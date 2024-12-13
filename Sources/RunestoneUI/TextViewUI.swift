@@ -433,35 +433,41 @@ public class TextViewCommands {
     /// The textview that provides the backing services
     public weak var textView: TextView? {
         didSet {
-            if textView != nil, let pending = pendingGoto {
-                let completion = pendingGotoCompletion
-                pendingGoto = nil
+            if let textView, pendingTextView.count > 0 {
                 DispatchQueue.main.async {
-                    self.requestGoto(line: pending)
-                    completion?()
+                    var copyPendingTasks = self.pendingTextView
+                    self.pendingTextView = []
+                    for callback in copyPendingTasks {
+                        callback(textView)
+                    }
                 }
             }
         }
     }
 
-    var pendingGoto: Int? = nil
-    var pendingGotoCompletion: (() -> ())? = nil
+    var pendingTextView: [(TextView) -> ()] = []
+
+    /// The TextView might not be instantiated when your code runs, use this to call a method when the textView is realized
+    public func onTextViewReady(callback: @escaping (TextView)->()) {
+        if let textView {
+            callback(textView)
+        } else {
+            pendingTextView.append(callback)
+        }
+    }
 
     /// Requests that the TextView navigates to the specified line
     public func requestGoto(line: Int, completion: (() -> ())? = nil) {
-        guard let textView else {
-            pendingGotoCompletion = completion
-            pendingGoto = line
-            return
-        }
-        if textView.goToLine(line) {
-            // For some reason goToLine does not always update the cursor position,
-            // not really a problem, because textView.goToLine already does this
-            // same thing for another workaround related to the caret position
-            textView.resignFirstResponder()
-            textView.becomeFirstResponder()
-            if let completion {
-                completion()
+        onTextViewReady { textView in
+            if textView.goToLine(line) {
+                // For some reason goToLine does not always update the cursor position,
+                // not really a problem, because textView.goToLine already does this
+                // same thing for another workaround related to the caret position
+                textView.resignFirstResponder()
+                textView.becomeFirstResponder()
+                if let completion {
+                    completion()
+                }
             }
         }
     }
