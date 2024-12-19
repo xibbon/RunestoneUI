@@ -5,7 +5,7 @@
 // Copyright 2024 Miguel de Icaza
 //
 import SwiftUI
-
+import GameController
 import UIKit
 @_exported import Runestone
 
@@ -70,6 +70,7 @@ public struct TextViewUI: UIViewRepresentable {
     @Binding var text: String
     @Binding var breakpoints: Set<Int>
     @Binding var keyboardOffset: CGFloat
+    @State var showInputAccessoryView: Bool?
     let commands: TextViewCommands
     let delegate: TextViewUIDelegate
 
@@ -145,7 +146,9 @@ public struct TextViewUI: UIViewRepresentable {
         #if os(iOS)
             tv.inputAssistantItem.leadingBarButtonGroups = []
             tv.inputAssistantItem.trailingBarButtonGroups = []
-            tv.inputAccessoryView = KeyboardToolsView(textView: tv)
+            if GCKeyboard.coalesced == nil {
+                tv.inputAccessoryView = KeyboardToolsView(textView: tv)
+            }
         #endif
         
         delegate.uitextViewLoaded(tv)
@@ -153,7 +156,9 @@ public struct TextViewUI: UIViewRepresentable {
     }
  
     public func makeCoordinator() -> TextViewCoordinator {
-        return TextViewCoordinator(text: $text, keyboardOffset: $keyboardOffset, delegate: delegate, commands: commands, includeLookupSymbol: includeLookupSymbol)
+        return TextViewCoordinator(text: $text, keyboardOffset: $keyboardOffset, delegate: delegate, commands: commands, includeLookupSymbol: includeLookupSymbol) { isConnected in
+            self.showInputAccessoryView = !isConnected
+        }
     }
     
     public func updateUIView(_ tv: TextView, context: Context) {
@@ -205,6 +210,19 @@ public struct TextViewUI: UIViewRepresentable {
         coordinator.findInteraction = findInteraction
         tv.isFindInteractionEnabled = findInteraction
         coordinator.commands.textView = tv
+        // small delay required otherwise issues with view update during view rendering occur
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            if let showInputAccessoryView {
+                if showInputAccessoryView {
+                    tv.inputAccessoryView = KeyboardToolsView(textView: tv)
+                    tv.reloadInputViews()
+                } else {
+                    tv.inputAccessoryView = nil
+                    tv.reloadInputViews()
+                }
+                self.showInputAccessoryView = nil
+            }
+        }
     }
     
     public static func dismantleUIView(_ uiView: TextView, coordinator: TextViewCoordinator) {
@@ -232,13 +250,41 @@ public struct TextViewUI: UIViewRepresentable {
         var lastEnd: UITextPosition?
         var indentStrategy: IndentStrategy = .tab(length: 4)
         var characterPairTrailingComponentDeletionMode: CharacterPairTrailingComponentDeletionMode = .immediatelyFollowingLeadingComponent
+        var updateKeyboardConnection: (Bool) -> ()
 
-        init (text: Binding<String>, keyboardOffset: Binding<CGFloat>, delegate: TextViewUIDelegate, commands: TextViewCommands, includeLookupSymbol: Bool) {
+        init (text: Binding<String>, keyboardOffset: Binding<CGFloat>, delegate: TextViewUIDelegate, commands: TextViewCommands, includeLookupSymbol: Bool, updateKeyboardConnection: @escaping (Bool) -> ()) {
             self.text = text
             self.keyboardOffset = keyboardOffset
             self.delegate = delegate
             self.commands = commands
             self.includeLookupSymbol = includeLookupSymbol
+            self.updateKeyboardConnection = updateKeyboardConnection
+            super.init()
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(keyboardDidConnect),
+                name: .GCKeyboardDidConnect,
+                object: nil
+            )
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(keyboardDidDisconnect),
+                name: .GCKeyboardDidDisconnect,
+                object: nil
+            )
+        }
+        
+        deinit {
+            NotificationCenter.default.removeObserver(self, name: .GCKeyboardDidConnect, object: nil)
+            NotificationCenter.default.removeObserver(self, name: .GCKeyboardDidDisconnect, object: nil)
+        }
+        
+        @objc private func keyboardDidConnect(notification: Notification) {
+            updateKeyboardConnection(true)
+        }
+            
+        @objc private func keyboardDidDisconnect(notification: Notification) {
+            updateKeyboardConnection(false)
         }
         
         public func scrollViewDidScroll(_ scrollView: UIScrollView) {
