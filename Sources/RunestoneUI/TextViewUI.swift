@@ -67,6 +67,7 @@ public struct TextViewUI: UIViewRepresentable {
     @Environment(\.indentStrategy) var indentStrategy: IndentStrategy
     @Environment(\.lineWrappingEnabled) var lineWrappingEnabled: Bool
     @Environment(\.characterPairTrailingComponentDeletionMode) var characterPairTrailingComponentDeletionMode: CharacterPairTrailingComponentDeletionMode
+    @Environment(\.theme) var theme: Runestone.Theme
     @Binding var text: String
     @Binding var breakpoints: Set<Int>
     @Binding var keyboardOffset: CGFloat
@@ -209,6 +210,7 @@ public struct TextViewUI: UIViewRepresentable {
         tv.characterPairs = characterPairs
         coordinator.findInteraction = findInteraction
         tv.isFindInteractionEnabled = findInteraction
+        tv.theme = theme
         coordinator.commands.textView = tv
         // small delay required otherwise issues with view update during view rendering occur
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -392,6 +394,7 @@ extension EnvironmentValues {
     @Entry public var autoCorrection: TextAutoCorrection = .default
     @Entry public var indentStrategy: IndentStrategy = .tab(length: 4)
     @Entry public var characterPairTrailingComponentDeletionMode: CharacterPairTrailingComponentDeletionMode = .disabled
+    @Entry public var theme: Runestone.Theme = DefaultTheme()
 }
 
 extension View {
@@ -465,6 +468,11 @@ extension View {
     /// Determines what should happen to the trailing component of a character pair when deleting the leading component.
     public func characterPairTrailingComponentDeletionMode(_ value: CharacterPairTrailingComponentDeletionMode) -> some View {
         environment(\.characterPairTrailingComponentDeletionMode, value)
+    }
+    
+    /// Injects Runestone theme to environment
+    public func theme(_ value: Runestone.Theme) -> some View {
+        environment(\.theme, value)
     }
 }
 
@@ -844,3 +852,36 @@ struct DemoPreview: View, TextViewUIDelegate {
     DemoPreview()
 }
 #endif
+
+/// Default theme used by Runestone when no other theme has been set.
+public class CodeEditorDefaultTheme: Runestone.Theme {
+    public var font: UIFont = UIFont.monospacedSystemFont(ofSize: 16, weight: .regular)
+    public var textColor: UIColor { base.textColor }
+    public var gutterBackgroundColor: UIColor { base.gutterBackgroundColor }
+    public var gutterHairlineColor: UIColor { base.gutterHairlineColor }
+    public var lineNumberColor: UIColor { base.lineNumberColor }
+    public var lineNumberFont: UIFont = UIFont.monospacedSystemFont(ofSize: 16, weight: .regular)
+    public var selectedLineBackgroundColor: UIColor { base.selectedLineBackgroundColor }
+    public var highlightedLineBackgroundColor: UIColor {base.highlightedLineBackgroundColor }
+    public var selectedLinesLineNumberColor: UIColor { base.selectedLinesLineNumberColor }
+    public var selectedLinesGutterBackgroundColor: UIColor {base.selectedLinesGutterBackgroundColor }
+    public var invisibleCharactersColor: UIColor { base.invisibleCharactersColor }
+    public var pageGuideHairlineColor: UIColor { base.pageGuideHairlineColor }
+    public var pageGuideBackgroundColor: UIColor { base.pageGuideBackgroundColor }
+    public var markedTextBackgroundColor: UIColor { base.markedTextBackgroundColor }
+
+    public func textColor(for highlightName: String) -> UIColor? {
+        base.textColor(for: highlightName)
+    }
+
+    var base: Runestone.Theme
+    public init(base: Runestone.Theme = DefaultTheme(), fontSize: CGFloat = 16) {
+        self.base = base
+        self.setFontSize(fontSize)
+    }
+    
+    public func setFontSize(_ size: CGFloat) {
+        font = UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
+        lineNumberFont = UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
+    }
+}
