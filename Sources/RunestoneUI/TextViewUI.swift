@@ -579,6 +579,10 @@ public class TextViewCommands {
             textView?.selectedTextRange = newValue
         }
     }
+    
+    public func toggleInlineComment(_ delimiter: String) {
+        textView?.toggleInlineComment(delimiter)
+    }
 }
 
 protocol PTextViewDelegate: AnyObject {
