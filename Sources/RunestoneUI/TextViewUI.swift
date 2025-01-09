@@ -517,8 +517,10 @@ public class TextViewCommands {
                 // For some reason goToLine does not always update the cursor position,
                 // not really a problem, because textView.goToLine already does this
                 // same thing for another workaround related to the caret position
-                textView.resignFirstResponder()
-                textView.becomeFirstResponder()
+                if textView.isFirstResponder {
+                    textView.resignFirstResponder()
+                    textView.becomeFirstResponder()
+                }
                 if let completion {
                     completion()
                 }
