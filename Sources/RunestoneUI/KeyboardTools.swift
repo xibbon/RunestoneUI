@@ -93,25 +93,6 @@ public final class KeyboardToolsView: UIInputView {
                 action: {
                     return
                 }),
-            KeyboardAccessoryButton(
-                title: "()",
-                icon: "",
-                additionalOptions: [
-                    KeyboardAccessoryButton(
-                        title: "{}", icon: "", action: { [weak textView] in
-                            textView?.insertText("{}")
-                            textView?.moveCursorLeft()
-
-                        }),
-                    KeyboardAccessoryButton(
-                        title: "[]", icon: "", action: { [weak textView] in
-                            textView?.insertText("[]")
-                            textView?.moveCursorLeft()
-                        })],
-                action: { [weak textView] in
-                    textView?.insertText("()")
-                    textView?.moveCursorLeft()
-                }),
             // “”“
             KeyboardAccessoryButton(
                 title: "\u{201C}a\u{201D}",
@@ -142,6 +123,31 @@ public final class KeyboardToolsView: UIInputView {
                 icon: "magnifyingglass",
                 action: {
                     textView.findInteraction?.presentFindNavigator(showingReplace: false)
+                }),
+            KeyboardAccessoryButton(
+                title: "_",
+                icon: "",
+                action: { [weak textView] in
+                    textView?.insertText("_")
+                }),
+            KeyboardAccessoryButton(
+                title: "()",
+                icon: "",
+                additionalOptions: [
+                    KeyboardAccessoryButton(
+                        title: "{}", icon: "", action: { [weak textView] in
+                            textView?.insertText("{}")
+                            textView?.moveCursorLeft()
+
+                        }),
+                    KeyboardAccessoryButton(
+                        title: "[]", icon: "", action: { [weak textView] in
+                            textView?.insertText("[]")
+                            textView?.moveCursorLeft()
+                        })],
+                action: { [weak textView] in
+                    textView?.insertText("()")
+                    textView?.moveCursorLeft()
                 }),
             KeyboardAccessoryButton(
                 title: "Dismiss",
