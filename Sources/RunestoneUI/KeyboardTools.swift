@@ -93,7 +93,6 @@ public final class KeyboardToolsView: UIInputView {
                 action: {
                     return
                 }),
-            // “”“
             KeyboardAccessoryButton(
                 title: "\u{201C}a\u{201D}",
                 icon: "",
@@ -117,7 +116,22 @@ public final class KeyboardToolsView: UIInputView {
             ], action: {
                 
             }),
-            
+            KeyboardAccessoryButton(
+                title: "Copy",
+                icon: "doc.on.doc",
+                action: { [weak textView] in
+                    if let range = textView?.selectedTextRange, let selectedText = textView?.text(in: range) {
+                        UIPasteboard.general.string = selectedText
+                    }
+                }),
+            KeyboardAccessoryButton(
+                title: "Paste",
+                icon: "document.on.clipboard",
+                action: { [weak textView] in
+                    if let str = UIPasteboard.general.string {
+                        textView?.insertText(str)
+                    }
+                }),
             KeyboardAccessoryButton(
                 title: "search",
                 icon: "magnifyingglass",
