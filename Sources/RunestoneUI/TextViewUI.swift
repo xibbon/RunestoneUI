@@ -196,6 +196,7 @@ public struct TextViewUI: UIViewRepresentable {
         }
         coordinator.showTabs = showTabs
         coordinator.indentStrategy = indentStrategy
+        tv.indentStrategy = indentStrategy
         coordinator.characterPairTrailingComponentDeletionMode = characterPairTrailingComponentDeletionMode
         coordinator.lineWrappingEnabled = lineWrappingEnabled
         tv.showTabs = showTabs
