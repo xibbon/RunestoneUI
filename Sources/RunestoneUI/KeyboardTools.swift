@@ -1,4 +1,4 @@
- //
+//
 //  KeyboardTools.swift
 //
 //  The keyboard input accessor for a coding editor, wiring up for
@@ -65,9 +65,8 @@ public final class KeyboardToolsView: UIInputView {
                 })],
                 action: { [weak textView] in
                     textView?.indent()
-                    
-                })
-            ,KeyboardAccessoryButton(
+                }),
+            KeyboardAccessoryButton(
                 title: "Undo",
                 icon: "arrow.uturn.backward",
                 action: { [weak textView] in
@@ -106,15 +105,12 @@ public final class KeyboardToolsView: UIInputView {
                     icon: "arrow.left",
                     action: { [weak textView] in
                         textView?.moveCursorLeft()
-                        
-                        
                     }),
                 KeyboardAccessoryButton(title: "Move Right",
                                         icon: "arrow.right", action: { [weak textView] in
                     textView?.moveCursorRight()
                 })
             ], action: {
-                
             }),
             KeyboardAccessoryButton(
                 title: "Copy",
@@ -169,7 +165,6 @@ public final class KeyboardToolsView: UIInputView {
                 action: { [weak textView] in
                     textView?.resignFirstResponder()
                 })
-            
         ]
         self.keyboardToolsObservable = KeyboardToolsObservable(buttons: buttons)
         super.init(frame: CGRect.zero, inputViewStyle: .keyboard)
@@ -192,17 +187,19 @@ public final class KeyboardToolsView: UIInputView {
     deinit {
         cleanup()
     }
-    
+
     /// This is needed because UIKit retains inputAccessoryView
     /// it is bug on UIKit side and only option is to cleanup resources and leave empty objects hanging
     func cleanup() {
         NotificationCenter.default.removeObserver(self)
         self.keyboardToolsObservable.buttons = []
     }
-    
+
     private func setupView() {
         let c = UIHostingController(rootView: KeyboardToolsUI(keyboardToolsObservable: keyboardToolsObservable))
-        let view = c.view!
+        guard let view = c.view else {
+            return
+        }
         view.translatesAutoresizingMaskIntoConstraints = false
         addSubview(view)
         updateUndoRedoButtonStates()
@@ -224,7 +221,7 @@ extension TextView {
             }
         }
     }
-    
+
     func moveCursorRight() {
         if let selectedRange = self.selectedTextRange {
             if let newCursorPosition = self.position(from: selectedRange.end, offset: 1) {
@@ -232,9 +229,8 @@ extension TextView {
                 self.selectedTextRange = newSelectedRange
             }
         }
-        
     }
-    
+
     func indent() {
         guard let cursorPosition = self.selectedTextRange?.start else { return }
         let beginning = self.beginningOfDocument
@@ -247,22 +243,22 @@ extension TextView {
         if !isStartOfLine && offset != 0 {
             handleNonStartOfLine(cursorPosition: cursorPosition)
         }
-        
+
         if isStartOfLine {
             shiftRight()
         }
     }
-    
+
     private func rangeOfLine(containing position: UITextPosition) -> UITextRange? {
         let text = self.text
-        
+
         // Get the current offset from the beginning of the document
         let offset = self.offset(from: self.beginningOfDocument, to: position)
-        
+
         // Find the start of the line
         var lineStartOffset = offset
         while lineStartOffset > 0 {
-            
+
             let index = text.index(text.startIndex, offsetBy: lineStartOffset - 1)
             if text[index].isNewline {
                 break
@@ -270,17 +266,16 @@ extension TextView {
 
             lineStartOffset -= 1
         }
-    
+
         // Adjust to ignore leading whitespaces
         while lineStartOffset < text.count {
-            
+
             let index = text.index(text.startIndex, offsetBy: lineStartOffset)
             // asciiValue == 10 was treated as white space wich made wrong canculation
             // about rangeOfLine so additional check was added
             if !(text[index].isWhitespace) || text[index].asciiValue == 10 {
                 break
             }
-
             lineStartOffset += 1
         }
 
@@ -291,7 +286,7 @@ extension TextView {
             if text[index].isNewline {
                 break
             }
-    
+
             lineEndOffset += 1
         }
 
@@ -315,26 +310,24 @@ extension TextView {
         let offset = self.offset(from: beginning, to: startOfLinePosition)
         return self.compare(cursorPosition, to: startOfLinePosition) == .orderedSame
    }
-    
-    
+
     private func handleNonStartOfLine(cursorPosition: UITextPosition) {
         // Get the range of the current word
         let tokenizer = self.tokenizer
         let range = tokenizer.rangeEnclosingPosition(cursorPosition, with: .word, inDirection: UITextDirection.storage(.forward))
-        
+
         if let range = range {
             let wordEndPosition = range.end
             let wordStartPosition = range.start
             if let selectedRange = self.selectedTextRange,
                self.compare(selectedRange.start, to: wordStartPosition) == .orderedSame,
-               self.compare(selectedRange.end, to: wordEndPosition) == .orderedSame  {
+               self.compare(selectedRange.end, to: wordEndPosition) == .orderedSame {
                 // If the word is selected, move the cursor to the end of the word
                 self.selectedTextRange = self.textRange(from: wordEndPosition, to: wordEndPosition)
             } else if self.compare(cursorPosition, to: wordEndPosition) == .orderedSame || self.compare(cursorPosition, to: wordStartPosition) == .orderedDescending {
                 // If the cursor is at the end of the word, select the next word
                 moveToNextWord(from: wordEndPosition)
             } else {
-                
                 if let r = self.textRange(from: cursorPosition, to: wordEndPosition), isValidWordRange(r) {
                     // If no word is selected, move the cursor to the end of the word
                     self.selectedTextRange = r
@@ -344,7 +337,7 @@ extension TextView {
             }
         }
     }
-   
+
     private func moveToNextWord(from position: UITextPosition) {
         let tokenizer = self.tokenizer
         var currentPosition = position
@@ -388,11 +381,11 @@ private extension KeyboardToolsView {
 @Observable
 class KeyboardToolsObservable {
     var buttons: [KeyboardAccessoryButton] = []
-    
+
     init(buttons: [KeyboardAccessoryButton]) {
         self.buttons = buttons
     }
-    
+
     func setUndo(isEnabled: Bool) {
         if let undoIndex = self.buttons.firstIndex(where: { $0.title.lowercased() == "undo"}) {
             var undoButton = self.buttons[undoIndex]
@@ -400,7 +393,7 @@ class KeyboardToolsObservable {
             self.buttons[undoIndex] = undoButton
         }
     }
-    
+
     func setRedo(isEnabled: Bool) {
         if let redoIndex = self.buttons.firstIndex(where: { $0.title.lowercased() == "redo"}) {
             var redoButton = self.buttons[redoIndex]
@@ -423,28 +416,19 @@ struct KeyboardToolsUI: View {
         .environment(\.globalWidth, globalWidth)
         .padding(.horizontal)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay {
-            GeometryReader { geometry in
-                Color.clear
-                .onAppear {
-                    // Calculate width of whole app view, derive button width from that value and button count
-                    globalWidth = geometry.size.width
-                    let buttonCount = keyboardToolsObservable.buttons.count
-                    let totalSpacing = CGFloat((buttonCount * 16) + 16)
-                    buttonWidth = min(150.0, (globalWidth - totalSpacing) / CGFloat(keyboardToolsObservable.buttons.count))
-                }
-                .onChange(of: geometry.size, { old, new in
-                    // Update on change width of whole app view, derive button width from that value and button count
-                    globalWidth = new.width
-                    let buttonCount = keyboardToolsObservable.buttons.count
-                    let totalSpacing = CGFloat((buttonCount * 16) + 16)
-                    buttonWidth = min(150.0, (globalWidth - totalSpacing) / CGFloat(keyboardToolsObservable.buttons.count))
-                })
-            }
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: {
+            globalWidth = $0
+            let buttonCount = keyboardToolsObservable.buttons.count
+            let totalSpacing = CGFloat((buttonCount * 16) + 16)
+            //let totalSpacing = 140.0
+            buttonWidth = min(80.0, (globalWidth - totalSpacing) / CGFloat(keyboardToolsObservable.buttons.count))
+
+            print("total=\(globalWidth) and buttonWidth=\(buttonWidth) count=\(buttonCount)")
         }
     }
 }
-
 
 struct KeyboardToolsButton: View {
     @Environment(\.globalWidth) var globalWidth
@@ -452,55 +436,55 @@ struct KeyboardToolsButton: View {
     @State var dragLocation: CGPoint?
     @State var selected: KeyboardAccessoryButton? = nil
     @State var frame: CGRect? = nil
-    
+
     let buttonModel: KeyboardAccessoryButton
     var isSelected: Bool = false
     let buttonWidth: CGFloat
-    
+
     var additionalOptionsCount: Int {
         return buttonModel.additionalOptions.count
     }
     // just some value to set so that it doesn't try to fill whole width
     // changing this value will have effect on additional options grid layout
     let maxAdditionalOptionsCols = 4
-    
+
     // calculates rows number for additional options grid
     var additionalOptionsRows: Int {
         return (additionalOptionsCount - 1) / maxAdditionalOptionsCols + 1
     }
-    
+
     // calculates columns number for additional options grid
     var additionalOptionsCols: Int {
         return additionalOptionsCount > maxAdditionalOptionsCols ? maxAdditionalOptionsCols : additionalOptionsCount
     }
-    
+
     // calculates whole grid height based on button height, row number and spacing
     var gridHeight: CGFloat {
         return CGFloat(additionalOptionsRows) * KeyboardToolsButton.buttonHeight + CGFloat(additionalOptionsRows + 1) *  AdditionalOptionsGrid.spacing
     }
-    
+
     // calculates whole grid width based on button width, columns number and spacing
     var gridWidth: CGFloat {
         return CGFloat(additionalOptionsCols)  * buttonWidth + CGFloat(additionalOptionsCols + 1) *  AdditionalOptionsGrid.spacing
     }
-    
+
     // calculates additional options grid offset based on source button position
     var xOffset: CGFloat {
         guard let frame else { return 0.0 }
         let additionalOptionsXMin = frame.minX - gridWidth / 2
         let additionalOptionsXMax = frame.maxX + gridWidth / 2
-        
+
         if additionalOptionsXMin < 0 {
             return abs(frame.minX - gridWidth / 2) - buttonWidth / 2 + (16 - AdditionalOptionsGrid.spacing)
-        } else if (additionalOptionsXMax > globalWidth) {
+        } else if additionalOptionsXMax > globalWidth {
             return -(additionalOptionsXMax - globalWidth) + buttonWidth / 2 - (16 - AdditionalOptionsGrid.spacing)
         } else {
             return 0.0
         }
     }
-    
+
     static var buttonHeight: CGFloat = 35.0
-    
+
     var body: some View {
         GeometryReader { gr in
             Group {
@@ -522,13 +506,11 @@ struct KeyboardToolsButton: View {
                         .cornerRadius(5)
                     }
                     .buttonStyle(.plain)
-
-                    
                 } else {
                     HStack {
                         let button1 = buttonModel.doubleButton[0]
                         let button2 = buttonModel.doubleButton[1]
-                        
+
                         HStack(spacing: 2) {
                             Button {
                                 button1.action()
@@ -544,7 +526,7 @@ struct KeyboardToolsButton: View {
                                 .background(isSelected ? Color(uiColor: .systemGray2) : Color(uiColor: .systemGray5))
                             }
                             .buttonStyle(.plain)
-                        
+
                             Button {
                                 button2.action()
                             } label: {
@@ -559,7 +541,6 @@ struct KeyboardToolsButton: View {
                                 .background(isSelected ? Color(uiColor: .systemGray2) : Color(uiColor: .systemGray5))
                             }
                             .buttonStyle(.plain)
-                            
                         }
                         .frame(width: buttonWidth,
                                height: KeyboardToolsButton.buttonHeight)
@@ -592,7 +573,6 @@ struct KeyboardToolsButton: View {
                                 showextraOptions = false
                                 self.selected = nil
                             })
-                        
                     )
                     .simultaneousGesture(LongPressGesture (minimumDuration: 0.6).onEnded ( { isEnded in
                         // shows extra options on button hold
@@ -610,10 +590,9 @@ struct KeyboardToolsButton: View {
                             .frame(width: gridWidth,
                                    height: gridHeight)
                             .offset(x: xOffset, y: -(gridHeight))
-                            .opacity(showextraOptions ? 1 : 0)
-                        ,
+                            .opacity(showextraOptions ? 1 : 0),
                         alignment: .top)
-                   
+
             })
             .coordinateSpace(name: "Custom")
             .opacity(buttonModel.isEnabled ? 1 : 0.4)
@@ -654,16 +633,16 @@ struct AdditionalOptionsGrid: View {
         }
         .padding(AdditionalOptionsGrid.spacing)
     }
-    
+
     func getButton(col: Int, row: Int) -> KeyboardAccessoryButton {
         return buttons[Int(buttons.count / rows) * row + col]
     }
-    
+
     var rows: Int {
         let r = Int(gridSize.height / KeyboardToolsButton.buttonHeight)
         return r
     }
-    
+
     func cols(row: Int) -> Int {
         let wholeRowColumnCount = Int(buttons.count / rows)
         if row == rows - 1 {
@@ -706,3 +685,33 @@ extension View {
         }
     }
 }
+
+#if DEBUG
+struct DemoTextView: UIViewRepresentable {
+    @State var tv = TextView()
+
+    func makeUIView(context: Context) -> KeyboardToolsView {
+        KeyboardToolsView(textView: tv)
+    }
+
+    func updateUIView(_ uiView: KeyboardToolsView, context: Context) {
+
+    }
+}
+#Preview {
+    @Previewable @State var tv = TextView()
+    @Previewable @State var width = 400.0
+
+    VStack(alignment: .leading) {
+        Slider(value: $width, in: 300...1000)
+
+        Text("Forced Size")
+        DemoTextView()
+            .frame(width: width)
+
+        Text("Computed size:")
+        DemoTextView()
+        Spacer()
+    }
+}
+#endif

@@ -95,7 +95,7 @@ public struct TextViewUI: UIViewRepresentable {
         self.commands = commands
         self._breakpoints = breakpoints
     }
-    
+
     public func makeUIView(context: Context) -> TextView {
         let tv = PTextView ()
         for x in tv.interactions {
@@ -151,17 +151,17 @@ public struct TextViewUI: UIViewRepresentable {
                 tv.inputAccessoryView = KeyboardToolsView(textView: tv)
             }
         #endif
-        
+
         delegate.uitextViewLoaded(tv)
         return tv
     }
- 
+
     public func makeCoordinator() -> TextViewCoordinator {
         return TextViewCoordinator(text: $text, keyboardOffset: $keyboardOffset, delegate: delegate, commands: commands, includeLookupSymbol: includeLookupSymbol) { isConnected in
             self.showInputAccessoryView = !isConnected
         }
     }
-    
+
     public func updateUIView(_ tv: TextView, context: Context) {
         let coordinator = context.coordinator
         if let language {
@@ -177,7 +177,7 @@ public struct TextViewUI: UIViewRepresentable {
             ptv.setBreakpoints(new: breakpoints)
         }
         coordinator.commands.textView = tv
-        
+
         tv.gutterTrailingPadding = (tv as? PTextView)?.breakpointSpace ?? 0
         coordinator.showSpaces = showSpaces
         tv.showSpaces = showSpaces
@@ -201,7 +201,7 @@ public struct TextViewUI: UIViewRepresentable {
         coordinator.lineWrappingEnabled = lineWrappingEnabled
         tv.showTabs = showTabs
         tv.characterPairTrailingComponentDeletionMode = characterPairTrailingComponentDeletionMode
-        
+
         coordinator.showLineNumbers = showLineNumbers
         coordinator.highlightLine = highlightLine
         tv.highlightedLine = highlightLine
@@ -227,13 +227,13 @@ public struct TextViewUI: UIViewRepresentable {
             }
         }
     }
-    
+
     public static func dismantleUIView(_ uiView: TextView, coordinator: TextViewCoordinator) {
         if let toolsInputView = uiView.getUnderlyingInputAccessoryView() as? KeyboardToolsView {
             toolsInputView.cleanup()
         }
     }
-    
+
     public class TextViewCoordinator: NSObject, TextViewDelegate, UIScrollViewDelegate, PTextViewDelegate, UIEditMenuInteractionDelegate {
         var language: TreeSitterLanguage? = nil
         var lineHeightMultiplier: Double = 1.3
@@ -276,30 +276,30 @@ public struct TextViewUI: UIViewRepresentable {
                 object: nil
             )
         }
-        
+
         deinit {
             NotificationCenter.default.removeObserver(self, name: .GCKeyboardDidConnect, object: nil)
             NotificationCenter.default.removeObserver(self, name: .GCKeyboardDidDisconnect, object: nil)
         }
-        
+
         @objc private func keyboardDidConnect(notification: Notification) {
             updateKeyboardConnection(true)
         }
-            
+
         @objc private func keyboardDidDisconnect(notification: Notification) {
             updateKeyboardConnection(false)
         }
-        
+
         public func scrollViewDidScroll(_ scrollView: UIScrollView) {
             guard let pt = scrollView as? PTextView else { return }
             pt.overlayView.frame.origin.y = scrollView.contentOffset.y
         }
-        
+
         public func textViewDidChange(_ textView: TextView) {
             let newText = textView.text
             text.wrappedValue =  newText
             delegate.uitextViewChanged(textView)
-            
+
             if let last = lastEnd {
                 switch textView.compare(last, to: textView.endOfDocument) {
                 case .orderedAscending:
@@ -329,29 +329,29 @@ public struct TextViewUI: UIViewRepresentable {
             //            }
             //            onChange (textView, newText, region, (start, end))
         }
-        
+
         public func textViewDidChangeSelection (_ textView: TextView) {
             delegate.uitextViewDidChangeSelection(textView)
         }
-        
+
         public func textView(_ textView: TextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
             //print ("Range is: loc: \(range.location) len: \(range.length)")
-            
+
             return true
         }
-        
+
         func lookup(_ textView: PTextView, at: UITextPosition, word: String) {
             delegate.uitextViewRequestWordLookup(textView, at: at, word: word)
         }
-        
+
         func updateKeyboardLocation (_ textView: PTextView, _ location: CGFloat) {
             keyboardOffset.wrappedValue = location - textView.contentOffset.y
         }
-        
+
         public func textView(_ textView: TextView, canReplaceTextIn highlightedRange: HighlightedRange) -> Bool {
             return true
         }
-        
+
         public func textViewTryCompletion() -> Bool {
             return delegate.uitextViewTryCompletion()
         }
@@ -366,7 +366,7 @@ public enum TextAutoCorrection {
     case yes
     /// Disables autocorrection behavior.
     case no
-    
+
 }
 
 /// The spell-checking style for the TextViewUI
@@ -403,22 +403,22 @@ extension View {
     public func language(_ language: TreeSitterLanguage?) -> some View {
         environment(\.language, language)
     }
-    
+
     /// The line-height is multiplied with the value.
     public func lineHeightMultiplier (_ value: Double) -> some View {
         environment(\.lineHeightMultiplier, value)
     }
-    
+
     /// The text view renders invisible spaces in RuneStone
     public func showSpaces (_ value: Bool) -> some View {
         environment(\.showSpaces, value)
     }
-    
+
     /// The text view renders invisible tabs when enabled. The tabsSymbol is used to render tabs.
     public func showTabs (_ value: Bool) -> some View {
         environment(\.showTabs, value)
     }
-    
+
     /// Enable to show line numbers in the gutter.
     public func showLineNumbers (_ value: Bool) -> some View {
         environment(\.showLineNumbers, value)
@@ -450,7 +450,7 @@ extension View {
     public func findInteraction (_ enable: Bool) -> some View {
         environment(\.findInteraction, enable)
     }
-    
+
     /// Controls the spell checking used by the TextViewUI
     public func spellChecking(_ value: SpellCheckType) -> some View {
         environment(\.spellChecking, value)
@@ -470,7 +470,7 @@ extension View {
     public func characterPairTrailingComponentDeletionMode(_ value: CharacterPairTrailingComponentDeletionMode) -> some View {
         environment(\.characterPairTrailingComponentDeletionMode, value)
     }
-    
+
     /// Injects Runestone theme to environment
     public func theme(_ value: Runestone.Theme) -> some View {
         environment(\.theme, value)
@@ -482,9 +482,9 @@ extension View {
 public class TextViewCommands {
     public init () {
     }
-    
+
     public var keyboardAnchor: UIView?
-    
+
     /// The textview that provides the backing services
     public weak var textView: TextView? {
         didSet {
@@ -533,22 +533,22 @@ public class TextViewCommands {
     public func requestFind() {
         textView?.findInteraction?.presentFindNavigator(showingReplace: false)
     }
-    
+
     /// Requests that the find and replace UI is shown
     public func requestFindAndReplace() {
         textView?.findInteraction?.presentFindNavigator(showingReplace: true)
     }
-    
+
     /// Returns the position in a document that is closest to a specified point.
     public func closestPosition (to point: CGPoint) -> UITextPosition? {
         return textView?.closestPosition(to: point)
     }
-    
+
     /// Returns the range between two text positions.
     public func textRange(from: UITextPosition, to: UITextPosition) -> UITextRange? {
         return textView?.textRange(from: from, to: to)
     }
-    
+
     /// Replaces the text that is in the specified range.
     public func replace(_ range: UITextRange, withText text: String) {
         textView?.replace(range, withText: text)
@@ -582,7 +582,7 @@ public class TextViewCommands {
             textView?.selectedTextRange = newValue
         }
     }
-    
+
     public func toggleInlineComment(_ delimiter: String) {
         textView?.toggleInlineComment(delimiter)
     }
@@ -599,11 +599,11 @@ class PTextView: TextView {
     var underlayView: UIView
     var keyboardAnchor: KeyboardAnchorView
     var includeLookupSymbol: Bool
-    
+
     // We put the tap handler here, over the view, on the gutter
     var overlayView: OverlayView
     weak var ptDelegate: PTextViewDelegate?
-    
+
     var breakpointSpace: CGFloat {
         let f = theme.font
         return f.ascender + abs(f.descender) + f.leading
@@ -614,7 +614,7 @@ class PTextView: TextView {
         //print ("Can perform \(action) -> \(v)")
         return v
     }
-    
+
     func getWordUnderSelection(pos: UITextRange) -> String? {
         if let left = tokenizer.position(from: pos.start, toBoundary: .word, inDirection: .layout(.left)),
            let right = tokenizer.position(from: pos.start, toBoundary: .word, inDirection: .layout(.right)),
@@ -629,12 +629,12 @@ class PTextView: TextView {
         super.buildMenu(with: builder)
         builder.remove(menu: .autoFill)
         builder.remove(menu: .share)
-        
+
         if includeLookupSymbol {
             if let selection = selectedTextRange, let word = getWordUnderSelection (pos: selection) {
                 // Need to callout and determine if this is:
                 // * Needs a lookup option
-                
+
                 let action = UIAction(title: "Lookup Symbol") { action in
                     self.ptDelegate?.lookup(self, at: selection.start, word: word)
                 }
@@ -644,32 +644,32 @@ class PTextView: TextView {
             builder.remove(menu: .lookup)
         }
     }
-    
+
     // This class exists just so that we can get nice information at debug time
     class BreakpointView: UIView {
     }
-    
+
     // We put this window on top of the textview, so we can capture taps on the gutter, which
     // we translate into enabling/disabling a breakpoint.
     class OverlayView: UIView {
         weak var container: PTextView?
-        
+
         override init (frame: CGRect) {
             self.container = nil
             super.init (frame: frame)
-            
+
             // To debug if the view is in the right place, you can use this
             // backgroundColor = UIColor (red: 0.5, green: 0.0, blue: 0.0, alpha: 0.5)
             backgroundColor = UIColor.clear
             isUserInteractionEnabled = true
-            
+
             addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(gutterTapped)))
         }
-        
+
         required init?(coder: NSCoder) {
             fatalError()
         }
-        
+
         @objc
         func gutterTapped (sender: UITapGestureRecognizer) {
             guard let container else { return }
@@ -686,11 +686,11 @@ class PTextView: TextView {
             }
         }
     }
-    
+
     /// This view sole purpose is to track the location of the bottom we can render on
     class KeyboardAnchorView: UIView {
         weak var container: PTextView? = nil
-        
+
         public override var frame: CGRect {
             get {
                 super.frame
@@ -714,7 +714,7 @@ class PTextView: TextView {
             }
         }
     }
-    
+
     override public init(frame: CGRect) {
         underlayView = BreakpointView(frame: frame)
         underlayView.backgroundColor = UIColor.clear
@@ -728,7 +728,7 @@ class PTextView: TextView {
         keyboardAnchor.container = self
         addSubview(overlayView)
         addSubview(keyboardAnchor)
-        
+
         // Add constraints to the keyboard anchor view to track the location of the keyboard
         NSLayoutConstraint.activate([
             keyboardAnchor.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -738,30 +738,30 @@ class PTextView: TextView {
             keyboardAnchor.bottomAnchor.constraint(equalTo: keyboardLayoutGuide.topAnchor)
         ])
     }
-    
+
     public required init?(coder: NSCoder) {
         fatalError("Not implemented")
     }
-    
+
     public override func layoutSubviews() {
         super.layoutSubviews()
         let f = frame
         overlayView.frame = CGRect (x: 0, y: contentOffset.y, width: gutterWidth, height: f.height)
-        
+
         let host = lineNumbersContainerView
         if underlayView.superview == nil {
             underlayView.frame = host.frame
             host.addSubview(underlayView)
         }
         underlayView.frame = host.frame
-    
+
         bringSubviewToFront(overlayView)
         updateBreakpointView()
     }
-    
+
     var breakpointViews: [Int:UIView] = [:]
-    
-    
+
+
     func setBreakpoints (new: Set<Int>) {
         let removed = breakpoints.subtracting(new)
         for line in removed {
@@ -774,11 +774,11 @@ class PTextView: TextView {
         self.breakpoints = new
         updateBreakpointView(for: added)
     }
-    
+
     func updateBreakpointView() {
         updateBreakpointView(for: breakpoints)
     }
-    
+
     func updateBreakpointView (for breakpoints: Set<Int>) {
         for bpLine in breakpoints {
             let tl = TextLocation (lineNumber: bpLine, column: 0)
@@ -809,18 +809,18 @@ class PTextView: TextView {
 
     class PointedRectangleView: UIView {
         let arrowSize: CGFloat = 5
-        
+
         override func draw(_ rect: CGRect) {
             // Define the start point of the path
             let startPoint = CGPoint(x: rect.minX, y: rect.midY)
-            
+
             // Define the other points of the path
             let topLeft = CGPoint(x: rect.minX, y: rect.minY)
             let topRight = CGPoint(x: rect.maxX - arrowSize, y: rect.minY)
             let pointRight = CGPoint(x: rect.maxX, y: rect.midY)
             let bottomRight = CGPoint(x: rect.maxX - arrowSize, y: rect.maxY)
             let bottomLeft = CGPoint(x: rect.minX, y: rect.maxY)
-            
+
             // Create the bezier path
             let path = UIBezierPath()
             path.move(to: startPoint)
@@ -830,11 +830,11 @@ class PTextView: TextView {
             path.addLine(to: bottomRight)
             path.addLine(to: bottomLeft)
             path.close()
-            
+
             UIColor.systemBlue.setFill()
             //Color.accentColor.opacity(0.3)
             path.fill()
-            
+
             // Set the stroke color and stroke the path
             UIColor.tintColor.setStroke()
             path.lineWidth = 1
@@ -886,7 +886,7 @@ public class CodeEditorDefaultTheme: Runestone.Theme {
         self.base = base
         self.setFontSize(fontSize)
     }
-    
+
     public func setFontSize(_ size: CGFloat) {
         font = UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
         lineNumberFont = UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
