@@ -490,7 +490,7 @@ public class TextViewCommands {
         didSet {
             if let textView, pendingTextView.count > 0 {
                 DispatchQueue.main.async {
-                    var copyPendingTasks = self.pendingTextView
+                    let copyPendingTasks = self.pendingTextView
                     self.pendingTextView = []
                     for callback in copyPendingTasks {
                         callback(textView)

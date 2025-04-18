@@ -307,7 +307,7 @@ extension TextView {
         let beginning = self.beginningOfDocument
 
         // Calculate the current cursor offset
-        let offset = self.offset(from: beginning, to: startOfLinePosition)
+        //let offset = self.offset(from: beginning, to: startOfLinePosition)
         return self.compare(cursorPosition, to: startOfLinePosition) == .orderedSame
    }
 
@@ -611,9 +611,9 @@ struct AdditionalOptionsGrid: View {
     @Binding var selected: KeyboardAccessoryButton?
     var body: some View {
         Grid {
-            ForEach(0..<rows) { row in
+            ForEach(0..<rows, id: \.self) { row in
                 GridRow {
-                    ForEach(0..<cols(row: row)) { col in
+                    ForEach(0..<cols(row: row), id: \.self) { col in
                         let button = getButton(col: col, row: row)
                         GeometryReader { gr in
                             KeyboardToolsButton(buttonModel: button, isSelected: button.id == selected?.id, buttonWidth: buttonWidth)
