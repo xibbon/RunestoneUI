@@ -211,7 +211,9 @@ public struct TextViewUI: UIViewRepresentable {
         tv.characterPairs = characterPairs
         coordinator.findInteraction = findInteraction
         tv.isFindInteractionEnabled = findInteraction
-        tv.theme = theme
+        if tv.theme !== theme {
+            tv.theme = theme
+        }
         coordinator.commands.textView = tv
         // small delay required otherwise issues with view update during view rendering occur
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
