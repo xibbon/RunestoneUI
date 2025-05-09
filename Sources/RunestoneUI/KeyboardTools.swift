@@ -13,6 +13,7 @@ import UIKit
 @_exported import Runestone
 
 public final class KeyboardToolsView: UIInputView {
+    let isPhone = UIDevice.current.userInterfaceIdiom == .phone
 
     private weak var textView: TextView?
     private let keyboardToolsObservable: KeyboardToolsObservable
@@ -56,116 +57,133 @@ public final class KeyboardToolsView: UIInputView {
                 textView?.insertText("^")
             }),
         ]
-        let buttons = [
+        var buttons: [KeyboardAccessoryButton] = []
+        buttons.append(KeyboardAccessoryButton(
+                            title: "Tab Right",
+                            icon: "arrow.right.to.line",
+                            additionalOptions: [KeyboardAccessoryButton(title: "Tab Left", icon: "arrow.left.to.line", action: { [weak textView] in
+                                textView?.shiftLeft()
+                            })],
+                            action: { [weak textView] in
+                                textView?.indent()
+                            }))
+        buttons.append(KeyboardAccessoryButton(
+                            title: "Undo",
+                            icon: "arrow.uturn.backward",
+                            action: { [weak textView] in
+                                textView?.undoManager?.undo()
+                            }))
+        buttons.append(KeyboardAccessoryButton(
+            title: "Redo",
+            icon: "arrow.uturn.forward",
+            action: { [weak textView] in
+                textView?.undoManager?.redo()
+            }))
+
+        buttons.append(KeyboardAccessoryButton(
+            title: "Operations",
+            icon: "plus.forwardslash.minus",
+            additionalOptions: operationButtons,
+            action: {
+                return
+            }))
+
+        if !isPhone {
+            buttons.append(KeyboardAccessoryButton(
+                            title: "\u{201C}a\u{201D}",
+                            icon: "",
+                            action: { [weak textView] in
+                                textView?.insertText("\"\"")
+                                textView?.moveCursorLeft()
+                            }))
+        }
+
+        buttons.append(KeyboardAccessoryButton(title: "leftright", icon: "", doubleButton: [
             KeyboardAccessoryButton(
-                title: "Tab Right",
-                icon: "arrow.right.to.line",
-                additionalOptions: [KeyboardAccessoryButton(title: "Tab Left", icon: "arrow.left.to.line", action: { [weak textView] in
-                    textView?.shiftLeft()
-                })],
+                title: "Move Left",
+                icon: "arrow.left",
                 action: { [weak textView] in
-                    textView?.indent()
+                    textView?.moveCursorLeft()
                 }),
-            KeyboardAccessoryButton(
-                title: "Undo",
-                icon: "arrow.uturn.backward",
+            KeyboardAccessoryButton(title: "Move Right",
+                                    icon: "arrow.right", action: { [weak textView] in
+                textView?.moveCursorRight()
+            })
+        ], action: {
+        }))
+
+        buttons.append(KeyboardAccessoryButton(
+            title: "Copy",
+            icon: "doc.on.doc",
+            action: { [weak textView] in
+                if let range = textView?.selectedTextRange, let selectedText = textView?.text(in: range) {
+                    UIPasteboard.general.string = selectedText
+                }
+            }))
+
+        buttons.append(KeyboardAccessoryButton(
+                            title: "Paste",
+                            icon: "document.on.clipboard",
+                            action: { [weak textView] in
+                                if let str = UIPasteboard.general.string {
+                                    textView?.insertText(str)
+                                }
+                            }))
+        buttons.append(KeyboardAccessoryButton(
+            title: "search",
+            icon: "magnifyingglass",
+            action: {
+                textView.findInteraction?.presentFindNavigator(showingReplace: false)
+            }))
+
+        buttons.append(KeyboardAccessoryButton(
+                title: "_",
+                icon: "",
                 action: { [weak textView] in
-                    textView?.undoManager?.undo()
-                }),
-            KeyboardAccessoryButton(
-                title: "Redo",
-                icon: "arrow.uturn.forward",
-                action: { [weak textView] in
-                    textView?.undoManager?.redo()
-                }),
-//            KeyboardAccessoryButton(
-//                title: "Reference",
-//                icon: "eye",
-//                action: {
-//                    //TODO: missing implementation for reference
-//                    
-//                }),
-            KeyboardAccessoryButton(
-                title: "Operations",
-                icon: "plus.forwardslash.minus",
-                additionalOptions: operationButtons,
-                action: {
-                    return
-                }),
-            KeyboardAccessoryButton(
+                    textView?.insertText("_")
+                }))
+        var bracketsAdditionalOptions: [KeyboardAccessoryButton] = []
+        bracketsAdditionalOptions.append(KeyboardAccessoryButton(
+            title: "{}", icon: "", action: { [weak textView] in
+                textView?.insertText("{}")
+                textView?.moveCursorLeft()
+
+            }))
+        bracketsAdditionalOptions.append(KeyboardAccessoryButton(
+            title: "[]", icon: "", action: { [weak textView] in
+                textView?.insertText("[]")
+                textView?.moveCursorLeft()
+            }))
+
+        if isPhone {
+            bracketsAdditionalOptions.append(KeyboardAccessoryButton(
                 title: "\u{201C}a\u{201D}",
                 icon: "",
                 action: { [weak textView] in
                     textView?.insertText("\"\"")
                     textView?.moveCursorLeft()
-                }),
-            KeyboardAccessoryButton(title: "leftright", icon: "", doubleButton: [
-                KeyboardAccessoryButton(
-                    title: "Move Left",
-                    icon: "arrow.left",
-                    action: { [weak textView] in
-                        textView?.moveCursorLeft()
-                    }),
-                KeyboardAccessoryButton(title: "Move Right",
-                                        icon: "arrow.right", action: { [weak textView] in
-                    textView?.moveCursorRight()
-                })
-            ], action: {
-            }),
-            KeyboardAccessoryButton(
-                title: "Copy",
-                icon: "doc.on.doc",
-                action: { [weak textView] in
-                    if let range = textView?.selectedTextRange, let selectedText = textView?.text(in: range) {
-                        UIPasteboard.general.string = selectedText
-                    }
-                }),
-            KeyboardAccessoryButton(
-                title: "Paste",
-                icon: "document.on.clipboard",
-                action: { [weak textView] in
-                    if let str = UIPasteboard.general.string {
-                        textView?.insertText(str)
-                    }
-                }),
-            KeyboardAccessoryButton(
-                title: "search",
-                icon: "magnifyingglass",
-                action: {
-                    textView.findInteraction?.presentFindNavigator(showingReplace: false)
-                }),
-            KeyboardAccessoryButton(
-                title: "_",
-                icon: "",
-                action: { [weak textView] in
-                    textView?.insertText("_")
-                }),
-            KeyboardAccessoryButton(
-                title: "()",
-                icon: "",
-                additionalOptions: [
-                    KeyboardAccessoryButton(
-                        title: "{}", icon: "", action: { [weak textView] in
-                            textView?.insertText("{}")
-                            textView?.moveCursorLeft()
+                }))
+        }
 
-                        }),
-                    KeyboardAccessoryButton(
-                        title: "[]", icon: "", action: { [weak textView] in
-                            textView?.insertText("[]")
-                            textView?.moveCursorLeft()
-                        })],
-                action: { [weak textView] in
-                    textView?.insertText("()")
-                    textView?.moveCursorLeft()
-                }),
-            KeyboardAccessoryButton(
+
+        buttons.append(KeyboardAccessoryButton(
+            title: "()",
+            icon: "",
+            additionalOptions: bracketsAdditionalOptions,
+            action: { [weak textView] in
+                textView?.insertText("()")
+                textView?.moveCursorLeft()
+            }))
+
+        if !isPhone {
+            buttons.append(KeyboardAccessoryButton(
                 title: "Dismiss",
                 icon: "keyboard.chevron.compact.down",
                 action: { [weak textView] in
                     textView?.resignFirstResponder()
-                })
-        ]
+                }))
+        }
+
         self.keyboardToolsObservable = KeyboardToolsObservable(buttons: buttons)
         super.init(frame: CGRect.zero, inputViewStyle: .keyboard)
         self.backgroundColor = .systemBackground
@@ -404,29 +422,48 @@ class KeyboardToolsObservable {
 }
 
 struct KeyboardToolsUI: View {
+
     @State private var globalWidth: CGFloat = 0
-    @State private var buttonWidth: CGFloat = 150.0
+    @State private var buttonWidth: CGFloat?
     var keyboardToolsObservable: KeyboardToolsObservable
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    var spacing: CGFloat {
+        horizontalSizeClass == .compact ? 4 : 16
+    }
     var body: some View {
-        HStack {
+
+        HStack(spacing: spacing) {
             ForEach(keyboardToolsObservable.buttons) { button in
-                KeyboardToolsButton(buttonModel: button, buttonWidth: buttonWidth)
+                if let buttonWidth {
+                    KeyboardToolsButton(buttonModel: button, buttonWidth: button.doubleButton.count > 1 ? 1.5 * buttonWidth : buttonWidth)
+                }
             }
         }
         .environment(\.globalWidth, globalWidth)
-        .padding(.horizontal)
         .frame(maxWidth: .infinity, alignment: .leading)
         .onGeometryChange(for: CGFloat.self) {
             $0.size.width
         } action: {
             globalWidth = $0
             let buttonCount = keyboardToolsObservable.buttons.count
-            let totalSpacing = CGFloat((buttonCount * 16) + 16)
-            //let totalSpacing = 140.0
-            buttonWidth = min(80.0, (globalWidth - totalSpacing) / CGFloat(keyboardToolsObservable.buttons.count))
+            let totalSpacing = CGFloat(buttonCount) * spacing - spacing
+            let doubleButtonCount = keyboardToolsObservable.buttons.filter({ $0.doubleButton.count > 1}).count
+            buttonWidth = min(80.0, (globalWidth - totalSpacing) / (CGFloat(keyboardToolsObservable.buttons.count) + CGFloat(doubleButtonCount) * 0.5))
 
             print("total=\(globalWidth) and buttonWidth=\(buttonWidth) count=\(buttonCount)")
         }
+        .padding(.horizontal, 8)
+        .ifCond(UIDevice.current.userInterfaceIdiom == .phone, transform: { v in
+            v.contentShape(Rectangle())
+                .highPriorityGesture(
+                    DragGesture()
+                        .onEnded { value in
+                            if value.translation.height > 10 {
+                                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                            }
+                        }
+                )
+        })
     }
 }
 
@@ -440,6 +477,10 @@ struct KeyboardToolsButton: View {
     let buttonModel: KeyboardAccessoryButton
     var isSelected: Bool = false
     let buttonWidth: CGFloat
+
+    var gridButtonWidth: CGFloat {
+        return buttonWidth < 80 ? (buttonWidth * 1.5) : buttonWidth
+    }
 
     var additionalOptionsCount: Int {
         return buttonModel.additionalOptions.count
@@ -465,7 +506,7 @@ struct KeyboardToolsButton: View {
 
     // calculates whole grid width based on button width, columns number and spacing
     var gridWidth: CGFloat {
-        return CGFloat(additionalOptionsCols)  * buttonWidth + CGFloat(additionalOptionsCols + 1) *  AdditionalOptionsGrid.spacing
+        return CGFloat(additionalOptionsCols)  * gridButtonWidth + CGFloat(additionalOptionsCols + 1) *  AdditionalOptionsGrid.spacing
     }
 
     // calculates additional options grid offset based on source button position
@@ -475,9 +516,9 @@ struct KeyboardToolsButton: View {
         let additionalOptionsXMax = frame.maxX + gridWidth / 2
 
         if additionalOptionsXMin < 0 {
-            return abs(frame.minX - gridWidth / 2) - buttonWidth / 2 + (16 - AdditionalOptionsGrid.spacing)
+            return abs(frame.minX - gridWidth / 2) - gridButtonWidth / 2 + (16 - AdditionalOptionsGrid.spacing)
         } else if additionalOptionsXMax > globalWidth {
-            return -(additionalOptionsXMax - globalWidth) + buttonWidth / 2 - (16 - AdditionalOptionsGrid.spacing)
+            return -(additionalOptionsXMax - globalWidth) + gridButtonWidth / 2 - (16 - AdditionalOptionsGrid.spacing)
         } else {
             return 0.0
         }
@@ -581,7 +622,7 @@ struct KeyboardToolsButton: View {
                     .overlay(
                         AdditionalOptionsGrid(buttons: buttonModel.additionalOptions,
                                               location: dragLocation,
-                                              buttonWidth: buttonWidth,
+                                              buttonWidth: gridButtonWidth,
                                               gridSize: CGSize(width: gridWidth,
                                                                height: gridHeight),
                                               selected: $selected)
@@ -616,7 +657,9 @@ struct AdditionalOptionsGrid: View {
                     ForEach(0..<cols(row: row), id: \.self) { col in
                         let button = getButton(col: col, row: row)
                         GeometryReader { gr in
-                            KeyboardToolsButton(buttonModel: button, isSelected: button.id == selected?.id, buttonWidth: buttonWidth)
+                            KeyboardToolsButton(buttonModel: button,
+                                                isSelected: button.id == selected?.id,
+                                                buttonWidth: buttonWidth)
                                 .onChange(of: location) { oldValue, newValue in
                                     guard let location else { return }
                                     // checks weather drag gesture is over current button
