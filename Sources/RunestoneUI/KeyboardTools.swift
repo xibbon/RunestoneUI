@@ -186,8 +186,10 @@ public final class KeyboardToolsView: UIInputView {
 
         self.keyboardToolsObservable = KeyboardToolsObservable(buttons: buttons)
         super.init(frame: CGRect.zero, inputViewStyle: .keyboard)
+        #if !os(visionOS)
         self.backgroundColor = .systemBackground
         self.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 64 + self.safeAreaInsets.bottom)
+        #endif
         setupView()
         //
         // Do not track the checkpoint one for our purposes, since it would be triggered when the undo/redo state is changed,

@@ -215,6 +215,7 @@ public struct TextViewUI: UIViewRepresentable {
             tv.theme = theme
         }
         coordinator.commands.textView = tv
+#if !os(visionOS)
         // small delay required otherwise issues with view update during view rendering occur
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             if let showInputAccessoryView {
@@ -228,12 +229,15 @@ public struct TextViewUI: UIViewRepresentable {
                 self.showInputAccessoryView = nil
             }
         }
+#endif
     }
 
     public static func dismantleUIView(_ uiView: TextView, coordinator: TextViewCoordinator) {
+#if !os(visionOS)
         if let toolsInputView = uiView.getUnderlyingInputAccessoryView() as? KeyboardToolsView {
             toolsInputView.cleanup()
         }
+#endif
     }
 
     public class TextViewCoordinator: NSObject, TextViewDelegate, UIScrollViewDelegate, PTextViewDelegate, UIEditMenuInteractionDelegate {
@@ -529,6 +533,10 @@ public class TextViewCommands {
                 }
             }
         }
+    }
+    
+    public func becomeFirstResponder() {
+        textView?.becomeFirstResponder()
     }
 
     /// Requests that the find UI is shown
