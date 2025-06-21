@@ -195,7 +195,7 @@ public final class KeyboardToolsView: UIInputView {
         // Do not track the checkpoint one for our purposes, since it would be triggered when the undo/redo state is changed,
         // but that triggers updateUIView in the SwiftUI view, which would override the changes done when performing
         // a batched text replace
-        NotificationCenter.default.addObserver(self, selector: #selector(updateUndoRedoButtonStates), name: .NSUndoManagerCheckpoint, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(updateUndoRedoButtonStates), name: .NSUndoManagerDidCloseUndoGroup, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(updateUndoRedoButtonStates), name: .NSUndoManagerDidUndoChange, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(updateUndoRedoButtonStates), name: .NSUndoManagerDidRedoChange, object: nil)
     }
