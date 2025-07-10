@@ -361,6 +361,14 @@ public struct TextViewUI: UIViewRepresentable {
         public func textViewTryCompletion() -> Bool {
             return delegate.uitextViewTryCompletion()
         }
+
+        public func textViewIndent(_ textView: TextView, undo: Bool) {
+            if undo {
+                textView.shiftLeft()
+            } else {
+                textView.shiftRight()
+            }
+        }
     }
 }
 
@@ -595,6 +603,14 @@ public class TextViewCommands {
 
     public func toggleInlineComment(_ delimiter: String) {
         textView?.toggleInlineComment(delimiter)
+    }
+
+    public func indent() {
+        textView?.shiftRight()
+    }
+
+    public func unIdent() {
+        textView?.shiftLeft()
     }
 }
 
