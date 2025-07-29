@@ -887,7 +887,7 @@ struct DemoPreview: View, TextViewUIDelegate {
 #endif
 
 /// Default theme used by Runestone when no other theme has been set.
-public class CodeEditorDefaultTheme: Runestone.Theme {
+public class CodeEditorTheme: Runestone.Theme {
     public var font: UIFont = UIFont.monospacedSystemFont(ofSize: 16, weight: .regular)
     public var textColor: UIColor { base.textColor }
     public var gutterBackgroundColor: UIColor { base.gutterBackgroundColor }
@@ -908,13 +908,17 @@ public class CodeEditorDefaultTheme: Runestone.Theme {
     }
 
     var base: Runestone.Theme
-    public init(base: Runestone.Theme = DefaultTheme(), fontSize: CGFloat = 16) {
+    public init(base: Runestone.Theme = DefaultTheme(), fontFamily: String = "", fontSize: CGFloat = 16) {
         self.base = base
-        self.setFontSize(fontSize)
+        self.setFont(fontFamily, fontSize)
     }
 
-    public func setFontSize(_ size: CGFloat) {
-        font = UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
+    public func setFont(_ family: String, _ size: CGFloat) {
+        if family == "" || family == "System Font" {
+            font = UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
+        } else {
+            font = UIFont(name: family, size: size) ?? UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
+        }
         lineNumberFont = UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
     }
 }
