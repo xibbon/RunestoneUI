@@ -23,6 +23,8 @@ public protocol TextViewUIDelegate {
     func uitextViewDidChangeSelection (_ textView: TextView)
     /// Invoked when virtual keyboard inserts return and determines weather to insert completion as result to return
     func uitextViewTryCompletion() -> Bool
+    /// Invoked when there is reason to recalculate breakpoints when lines are added or removed
+    func uitextViewDidInvalidateBreakpoints(_ textView: TextView, changeLineIndex: Int, diff: Int)
 }
 
 /// Default protocol implementaiton, does nothing
@@ -33,6 +35,7 @@ public extension TextViewUIDelegate{
     func uitextViewRequestWordLookup (_ textView: TextView, at: UITextPosition, word: String) {}
     func uitextViewDidChangeSelection (_ textView: TextView) {}
     func uitextViewTryCompletion() -> Bool { return false }
+    func textViewDidInvalidateBreakpoints(_ textView: TextView, changeLineIndex: Int, diff: Int) {}
 }
 /// SwiftUI wrapper for RuneStone's TextView
 ///
@@ -368,6 +371,10 @@ public struct TextViewUI: UIViewRepresentable {
             } else {
                 textView.shiftRight()
             }
+        }
+
+        public func textViewDidInvalidateBreakpoints(_ textView: TextView, changeLineIndex: Int, diff: Int) {
+            delegate.uitextViewDidInvalidateBreakpoints(textView, changeLineIndex: changeLineIndex, diff: diff)
         }
     }
 }
@@ -871,6 +878,10 @@ class PTextView: TextView {
 
 #if DEBUG
 struct DemoPreview: View, TextViewUIDelegate {
+    func uitextViewDidInvalidateBreakpoints(_ textView: Runestone.TextView, changeLineIndex: Int, diff: Int) {
+        
+    }
+    
     @State var text = "Hello\n\tWorld\nCat"
 
     var body: some View {
