@@ -619,6 +619,13 @@ public class TextViewCommands {
     public func unIdent() {
         textView?.shiftLeft()
     }
+    
+    public func getBufferInfo() -> (currentLine: Int?, lineCount: Int)? {
+        guard let textView else { return nil }
+        
+        let loc = textView.textLocation(at: textView.selectedRange.location)
+        return (loc?.lineNumber ?? nil, textView.lineCount())
+    }
 }
 
 protocol PTextViewDelegate: AnyObject {
