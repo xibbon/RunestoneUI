@@ -56,6 +56,18 @@ public final class KeyboardToolsView: UIInputView {
             KeyboardAccessoryButton(title: "^", icon: "", action: { [weak textView] in
                 textView?.insertText("^")
             }),
+            KeyboardAccessoryButton(title: "=", icon: "", action: { [weak textView] in
+                textView?.insertText("=")
+            }),
+            KeyboardAccessoryButton(title: "==", icon: "", action: { [weak textView] in
+                textView?.insertText("==")
+            }),
+            KeyboardAccessoryButton(title: "!=", icon: "", action: { [weak textView] in
+                textView?.insertText("!=")
+            }),
+            KeyboardAccessoryButton(title: ":=", icon: "", action: { [weak textView] in
+                textView?.insertText(":=")
+            }),
         ]
         var buttons: [KeyboardAccessoryButton] = []
         buttons.append(KeyboardAccessoryButton(
@@ -493,7 +505,7 @@ struct KeyboardToolsButton: View {
 
     // calculates rows number for additional options grid
     var additionalOptionsRows: Int {
-        return (additionalOptionsCount - 1) / maxAdditionalOptionsCols + 1
+        return additionalOptionsCount  / additionalOptionsCols
     }
 
     // calculates columns number for additional options grid
@@ -628,10 +640,10 @@ struct KeyboardToolsButton: View {
                                               gridSize: CGSize(width: gridWidth,
                                                                height: gridHeight),
                                               selected: $selected)
-                            .background(Color(uiColor: .systemBackground))
-                            .cornerRadius(5)
                             .frame(width: gridWidth,
                                    height: gridHeight)
+                            .background(Color(uiColor: .systemBackground))
+                            .cornerRadius(5)
                             .offset(x: xOffset, y: -(gridHeight))
                             .opacity(showextraOptions ? 1 : 0),
                         alignment: .top)
@@ -653,7 +665,7 @@ struct AdditionalOptionsGrid: View {
     var gridSize: CGSize
     @Binding var selected: KeyboardAccessoryButton?
     var body: some View {
-        Grid {
+        Grid(horizontalSpacing: Self.spacing, verticalSpacing: Self.spacing) {
             ForEach(0..<rows, id: \.self) { row in
                 GridRow {
                     ForEach(0..<cols(row: row), id: \.self) { col in
@@ -684,7 +696,7 @@ struct AdditionalOptionsGrid: View {
     }
 
     var rows: Int {
-        let r = Int(gridSize.height / KeyboardToolsButton.buttonHeight)
+        let r = Int(gridSize.height / (KeyboardToolsButton.buttonHeight + Self.spacing))
         return r
     }
 
