@@ -77,7 +77,7 @@ public final class KeyboardToolsView: UIInputView {
                                 textView?.shiftLeft()
                             })],
                             action: { [weak textView] in
-                                textView?.indent()
+                                textView?.insertText("\t")
                             }))
         buttons.append(KeyboardAccessoryButton(
                             title: "Undo",
