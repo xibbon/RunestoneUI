@@ -638,6 +638,7 @@ class PTextView: TextView {
     // We put the breakpoint symbols here, under the line number text
     var underlayView: UIView
     var keyboardAnchor: KeyboardAnchorView
+    private var keyboardAnchorBottomConstraint: NSLayoutConstraint?
     var includeLookupSymbol: Bool
 
     // We put the tap handler here, over the view, on the gutter
@@ -769,18 +770,22 @@ class PTextView: TextView {
         addSubview(overlayView)
         addSubview(keyboardAnchor)
 
-        // Add constraints to the keyboard anchor view to track the location of the keyboard
         NSLayoutConstraint.activate([
             keyboardAnchor.leadingAnchor.constraint(equalTo: leadingAnchor),
             keyboardAnchor.trailingAnchor.constraint(equalTo: trailingAnchor),
             keyboardAnchor.heightAnchor.constraint(equalToConstant: 10),
-            keyboardAnchor.widthAnchor.constraint(equalToConstant: 10),
-            keyboardAnchor.bottomAnchor.constraint(equalTo: keyboardLayoutGuide.topAnchor)
+            keyboardAnchor.widthAnchor.constraint(equalToConstant: 10)
         ])
+        updateKeyboardAnchorConstraint()
     }
 
     public required init?(coder: NSCoder) {
         fatalError("Not implemented")
+    }
+
+    override public func didMoveToWindow() {
+        super.didMoveToWindow()
+        updateKeyboardAnchorConstraint()
     }
 
     public override func layoutSubviews() {
@@ -797,6 +802,19 @@ class PTextView: TextView {
 
         bringSubviewToFront(overlayView)
         updateBreakpointView()
+    }
+
+    private func updateKeyboardAnchorConstraint() {
+        keyboardAnchorBottomConstraint?.isActive = false
+        guard window != nil else {
+            keyboardAnchorBottomConstraint = nil
+            return
+        }
+
+        // Constrain to the current keyboard layout guide (which can change if the view moves between windows).
+        let constraint = keyboardAnchor.bottomAnchor.constraint(equalTo: keyboardLayoutGuide.topAnchor)
+        constraint.isActive = true
+        keyboardAnchorBottomConstraint = constraint
     }
 
     var breakpointViews: [Int:UIView] = [:]
