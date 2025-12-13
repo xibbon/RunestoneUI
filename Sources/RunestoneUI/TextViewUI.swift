@@ -806,13 +806,13 @@ class PTextView: TextView {
 
     private func updateKeyboardAnchorConstraint() {
         keyboardAnchorBottomConstraint?.isActive = false
-        guard window != nil else {
-            keyboardAnchorBottomConstraint = nil
+        keyboardAnchorBottomConstraint = nil
+        guard let window else {
             return
         }
 
-        // Constrain to the current keyboard layout guide (which can change if the view moves between windows).
-        let constraint = keyboardAnchor.bottomAnchor.constraint(equalTo: keyboardLayoutGuide.topAnchor)
+        // Anchor the keyboard marker to the window so we avoid mixing layout guides from different view hierarchies.
+        let constraint = keyboardAnchor.bottomAnchor.constraint(equalTo: window.keyboardLayoutGuide.topAnchor)
         constraint.isActive = true
         keyboardAnchorBottomConstraint = constraint
     }
