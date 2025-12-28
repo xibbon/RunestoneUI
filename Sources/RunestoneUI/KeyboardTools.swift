@@ -79,19 +79,34 @@ public final class KeyboardToolsView: UIInputView {
                             action: { [weak textView] in
                                 textView?.insertText("\t")
                             }))
-        buttons.append(KeyboardAccessoryButton(
-                            title: "Undo",
-                            icon: "arrow.uturn.backward",
-                            action: { [weak textView] in
-                                textView?.undoManager?.undo()
-                            }))
-        buttons.append(KeyboardAccessoryButton(
-            title: "Redo",
-            icon: "arrow.uturn.forward",
-            action: { [weak textView] in
-                textView?.undoManager?.redo()
-            }))
+        if !isPhone {
+            buttons.append(KeyboardAccessoryButton(
+                title: "Undo",
+                icon: "arrow.uturn.backward",
+                action: { [weak textView] in
+                    textView?.undoManager?.undo()
+                }))
+            buttons.append(KeyboardAccessoryButton(
+                title: "Redo",
+                icon: "arrow.uturn.forward",
+                action: { [weak textView] in
+                    textView?.undoManager?.redo()
+                }))
+        } else {
+            buttons.append(KeyboardAccessoryButton(
+                title: "Undo",
+                icon: "arrow.uturn.backward",
+                additionalOptions: [KeyboardAccessoryButton(
+                    title: "Redo",
+                    icon: "arrow.uturn.forward",
+                    action: { [weak textView] in
+                        textView?.undoManager?.redo()
+                    })],
+                action: { [weak textView] in
+                    textView?.undoManager?.undo()
+                }))
 
+        }
         buttons.append(KeyboardAccessoryButton(
             title: "Operations",
             icon: "plus.forwardslash.minus",
@@ -123,24 +138,25 @@ public final class KeyboardToolsView: UIInputView {
             })
         ], action: {
         }))
+        if !isPhone {
+            buttons.append(KeyboardAccessoryButton(
+                title: "Copy",
+                icon: "doc.on.doc",
+                action: { [weak textView] in
+                    if let range = textView?.selectedTextRange, let selectedText = textView?.text(in: range) {
+                        UIPasteboard.general.string = selectedText
+                    }
+                }))
 
-        buttons.append(KeyboardAccessoryButton(
-            title: "Copy",
-            icon: "doc.on.doc",
-            action: { [weak textView] in
-                if let range = textView?.selectedTextRange, let selectedText = textView?.text(in: range) {
-                    UIPasteboard.general.string = selectedText
-                }
-            }))
-
-        buttons.append(KeyboardAccessoryButton(
-                            title: "Paste",
-                            icon: "document.on.clipboard",
-                            action: { [weak textView] in
-                                if let str = UIPasteboard.general.string {
-                                    textView?.insertText(str)
-                                }
-                            }))
+            buttons.append(KeyboardAccessoryButton(
+                title: "Paste",
+                icon: "document.on.clipboard",
+                action: { [weak textView] in
+                    if let str = UIPasteboard.general.string {
+                        textView?.insertText(str)
+                    }
+                }))
+        }
         buttons.append(KeyboardAccessoryButton(
             title: "search",
             icon: "magnifyingglass",
@@ -187,14 +203,12 @@ public final class KeyboardToolsView: UIInputView {
                 textView?.moveCursorLeft()
             }))
 
-        if !isPhone {
-            buttons.append(KeyboardAccessoryButton(
-                title: "Dismiss",
-                icon: "keyboard.chevron.compact.down",
-                action: { [weak textView] in
-                    textView?.resignFirstResponder()
-                }))
-        }
+        buttons.append(KeyboardAccessoryButton(
+            title: "Dismiss",
+            icon: "keyboard.chevron.compact.down",
+            action: { [weak textView] in
+                textView?.resignFirstResponder()
+            }))
 
         self.keyboardToolsObservable = KeyboardToolsObservable(buttons: buttons)
         super.init(frame: CGRect.zero, inputViewStyle: .keyboard)
@@ -405,7 +419,10 @@ extension UITextDirection {
 private extension KeyboardToolsView {
     @objc private func updateUndoRedoButtonStates() {
         let undoManager = textView?.undoManager
-        self.keyboardToolsObservable.setUndo(isEnabled: undoManager?.canUndo ?? false)
+        // On iPhone we must leave undo enabled to be able to long press to get redo that is additional option on long press
+        if !isPhone {
+            self.keyboardToolsObservable.setUndo(isEnabled: undoManager?.canUndo ?? false)
+        }
         self.keyboardToolsObservable.setRedo(isEnabled: undoManager?.canRedo ?? false)
     }
 }
@@ -539,13 +556,19 @@ struct KeyboardToolsButton: View {
     }
 
     static var buttonHeight: CGFloat = 35.0
+    @State var skipMainAction: Bool = false
 
     var body: some View {
         GeometryReader { gr in
             Group {
                 if buttonModel.doubleButton.count < 2 {
                     Button {
-                        self.buttonModel.action()
+                        defer {
+                            skipMainAction = false
+                        }
+                        if !skipMainAction {
+                            self.buttonModel.action()
+                        }
                         showextraOptions = false
                     } label: {
                         Group {
@@ -624,6 +647,10 @@ struct KeyboardToolsButton: View {
                             .onEnded({ _ in
                                 // this is selected additional button action
                                 // gets triggerd when releasing finger upon drag selection
+                                // we want to make sure we don't fire main action in that case
+                                if self.selected != nil {
+                                    skipMainAction = true
+                                }
                                 self.selected?.action()
                                 showextraOptions = false
                                 self.selected = nil
@@ -653,7 +680,7 @@ struct KeyboardToolsButton: View {
             .opacity(buttonModel.isEnabled ? 1 : 0.4)
             .allowsHitTesting(buttonModel.isEnabled ? true : false)
         }
-        .frame(width: buttonWidth)
+        .frame(maxWidth: buttonWidth)
     }
 }
 
