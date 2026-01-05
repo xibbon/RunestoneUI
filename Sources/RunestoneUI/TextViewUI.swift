@@ -142,7 +142,6 @@ public struct TextViewUI: UIViewRepresentable {
         //tv.pageGuideColumn = 80
         tv.autocorrectionType = .no
         tv.autocapitalizationType = .none
-        tv.keyboardType = .alphabet
         tv.smartQuotesType = .no
         tv.smartDashesType = .no
         tv.characterPairs = characterPairs
