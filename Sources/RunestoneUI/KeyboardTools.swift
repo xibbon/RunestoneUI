@@ -475,11 +475,25 @@ struct KeyboardToolsUI: View {
         .onGeometryChange(for: CGFloat.self) {
             $0.size.width
         } action: {
-            globalWidth = $0
+            let newGlobalWidth = $0
             let buttonCount = keyboardToolsObservable.buttons.count
             let totalSpacing = CGFloat(buttonCount) * spacing - spacing
             let doubleButtonCount = keyboardToolsObservable.buttons.filter({ $0.doubleButton.count > 1}).count
-            buttonWidth = min(80.0, (globalWidth - totalSpacing) / (CGFloat(keyboardToolsObservable.buttons.count) + CGFloat(doubleButtonCount) * 0.5))
+            let newButtonWidth = min(80.0, (newGlobalWidth - totalSpacing) / (CGFloat(keyboardToolsObservable.buttons.count) + CGFloat(doubleButtonCount) * 0.5))
+
+            // Only update if the change is significant (more than 0.01 points)
+            // This prevents infinite layout loops due to floating-point precision
+            let widthThreshold: CGFloat = 0.01
+            if abs(newGlobalWidth - globalWidth) > widthThreshold {
+                globalWidth = newGlobalWidth
+            }
+            if let currentButtonWidth = buttonWidth {
+                if abs(newButtonWidth - currentButtonWidth) > widthThreshold {
+                    buttonWidth = newButtonWidth
+                }
+            } else {
+                buttonWidth = newButtonWidth
+            }
 
             print("total=\(globalWidth) and buttonWidth=\(buttonWidth) count=\(buttonCount)")
         }
