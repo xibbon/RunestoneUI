@@ -1008,15 +1008,12 @@ class PTextView: TextView {
 
         override init(frame: CGRect) {
             super.init(frame: frame)
-            backgroundColor = UIColor.systemOrange.withAlphaComponent(0.18)
-            layer.borderColor = UIColor.systemOrange.withAlphaComponent(0.9).cgColor
-            layer.borderWidth = 1
             isUserInteractionEnabled = false
             isAccessibilityElement = true
             accessibilityTraits = .image
 
             imageView.contentMode = .scaleAspectFit
-            imageView.tintColor = UIColor.systemOrange
+            imageView.tintColor = UIColor.systemGreen
             imageView.isUserInteractionEnabled = false
             addSubview(imageView)
         }
@@ -1027,12 +1024,11 @@ class PTextView: TextView {
 
         override func layoutSubviews() {
             super.layoutSubviews()
-            layer.cornerRadius = min(bounds.width, bounds.height) / 2
-            imageView.frame = bounds.insetBy(dx: 2, dy: 2)
+            imageView.frame = bounds
             let symbolSize = max(8, min(bounds.width, bounds.height) * 0.58)
             let configuration = UIImage.SymbolConfiguration(pointSize: symbolSize, weight: .semibold)
             imageView.preferredSymbolConfiguration = configuration
-            imageView.image = UIImage(systemName: "arrow.right.square", withConfiguration: configuration)
+            imageView.image = UIImage(systemName: "arrow.forward.square", withConfiguration: configuration)
                 ?? UIImage(systemName: "circle.fill", withConfiguration: configuration)
         }
 
