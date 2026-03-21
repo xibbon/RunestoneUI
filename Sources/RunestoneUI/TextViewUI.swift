@@ -9,6 +9,20 @@ import GameController
 import UIKit
 @_exported import Runestone
 
+public struct TextViewSignalConnectionMarker: Identifiable, Hashable, Sendable {
+    public let line: Int
+    public let detailText: String
+
+    public init(line: Int, detailText: String = "") {
+        self.line = line
+        self.detailText = detailText
+    }
+
+    public var id: Int {
+        line
+    }
+}
+
 /// Messages that are posted by the TextViewUI
 public protocol TextViewUIDelegate {
     /// Callback that is invoked when the text changes and includes a handle to the TextView, so you can extract data as needed
@@ -52,6 +66,7 @@ public extension TextViewUIDelegate{
 /// - `.highlightLine(Int?)` - If not nil, highlights this line in the editor
 /// - `.characterPairs([CharacterPair])` - Character pairs are used by the editor to
 /// automatically insert a trailing character when the user types the leading character.
+/// - `signalConnectionMarkers` - Optional markers shown in the gutter for lines that are connected to signals.
 /// - `.findInteraction(Bool)` - Controls whether the built-in find-interaction UI is shown on the TextViewUI,
 /// defaults to true.
 /// - `.includeLookupSymbol(Bool)` - Controls whether the "Lookup Symbol" menu is added to the text editor
@@ -75,6 +90,7 @@ public struct TextViewUI: UIViewRepresentable {
     @Binding var breakpoints: Set<Int>
     @Binding var keyboardOffset: CGFloat
     @State var showInputAccessoryView: Bool?
+    let signalConnectionMarkers: [TextViewSignalConnectionMarker]
     let commands: TextViewCommands
     let delegate: TextViewUIDelegate
 
@@ -84,12 +100,14 @@ public struct TextViewUI: UIViewRepresentable {
     ///  - commands: you create an instance of this class and pass it here, and you can then control the TextViewUI by issuing commands there
     ///  - keyboardOffset: if this is provided, the location of the keyboard offset is
     ///  - breakpoints: Optional, if set is a set of line numbers that should be flagged with a breakpoint indicator in the gutter portion of the text view
+    ///  - signalConnectionMarkers: Optional, if set these line numbers are shown with a signal-connection indicator in the gutter
     ///  - delegate: instance that implements the various methods required to support the TextView
     public init (
         text: Binding<String>,
         commands: TextViewCommands,
         keyboardOffset: Binding<CGFloat> = .constant(0),
         breakpoints: Binding<Set<Int>> = .constant([]),
+        signalConnectionMarkers: [TextViewSignalConnectionMarker] = [],
         delegate: TextViewUIDelegate
     ) {
         self._text = text
@@ -97,6 +115,7 @@ public struct TextViewUI: UIViewRepresentable {
         self.delegate = delegate
         self.commands = commands
         self._breakpoints = breakpoints
+        self.signalConnectionMarkers = signalConnectionMarkers
     }
 
     public func makeUIView(context: Context) -> TextView {
@@ -177,10 +196,12 @@ public struct TextViewUI: UIViewRepresentable {
         tv.text = text
         if let ptv = tv as? PTextView {
             ptv.setBreakpoints(new: breakpoints)
+            ptv.setSignalConnectionMarkers(new: signalConnectionMarkers)
+            tv.gutterTrailingPadding = ptv.lineMarkerSpace
+        } else {
+            tv.gutterTrailingPadding = 0
         }
         coordinator.commands.textView = tv
-
-        tv.gutterTrailingPadding = (tv as? PTextView)?.breakpointSpace ?? 0
         coordinator.showSpaces = showSpaces
         tv.showSpaces = showSpaces
         tv.showNonBreakingSpaces = showSpaces
@@ -644,7 +665,7 @@ class PTextView: TextView {
     var overlayView: OverlayView
     weak var ptDelegate: PTextViewDelegate?
 
-    var breakpointSpace: CGFloat {
+    var lineMarkerSpace: CGFloat {
         let f = theme.font
         return f.ascender + abs(f.descender) + f.leading
     }
@@ -801,6 +822,7 @@ class PTextView: TextView {
 
         bringSubviewToFront(overlayView)
         updateBreakpointView()
+        updateSignalConnectionViews()
     }
 
     private func updateKeyboardAnchorConstraint() {
@@ -817,6 +839,8 @@ class PTextView: TextView {
     }
 
     var breakpointViews: [Int:UIView] = [:]
+    var signalConnectionMarkers: [Int: TextViewSignalConnectionMarker] = [:]
+    var signalConnectionViews: [Int: UIView] = [:]
 
 
     func setBreakpoints (new: Set<Int>) {
@@ -830,6 +854,25 @@ class PTextView: TextView {
         let added = new.subtracting(breakpoints)
         self.breakpoints = new
         updateBreakpointView(for: added)
+    }
+
+    func setSignalConnectionMarkers(new: [TextViewSignalConnectionMarker]) {
+        var updatedMarkers: [Int: TextViewSignalConnectionMarker] = [:]
+        for marker in new where marker.line >= 0 {
+            updatedMarkers[marker.line] = marker
+        }
+
+        let removed = Set(signalConnectionMarkers.keys).subtracting(updatedMarkers.keys)
+        for line in removed {
+            if let view = signalConnectionViews[line] {
+                view.removeFromSuperview()
+                signalConnectionViews.removeValue(forKey: line)
+            }
+        }
+
+        signalConnectionMarkers = updatedMarkers
+        updateSignalConnectionViews(for: Set(updatedMarkers.keys))
+        updateBreakpointView()
     }
 
     func updateBreakpointView() {
@@ -852,7 +895,12 @@ class PTextView: TextView {
                 return
             }
             let rect = caretRect(for: p)
-            let bpFrame = CGRect(x: gutterLeadingPadding, y: rect.minY, width: gutterWidth-gutterLeadingPadding-5, height: rect.height)
+            let bpFrame = CGRect(
+                x: gutterLeadingPadding,
+                y: rect.minY,
+                width: max(0, gutterWidth - gutterLeadingPadding - 5 - reservedWidthForSignalMarker(on: bpLine, lineHeight: rect.height)),
+                height: rect.height
+            )
             if let bpView = breakpointViews [bpLine] {
                 bpView.frame = bpFrame
             } else {
@@ -862,6 +910,62 @@ class PTextView: TextView {
                 breakpointViews [bpLine] = prv
             }
         }
+    }
+
+    func updateSignalConnectionViews() {
+        updateSignalConnectionViews(for: Set(signalConnectionMarkers.keys))
+    }
+
+    func updateSignalConnectionViews(for lines: Set<Int>) {
+        for line in lines {
+            guard let marker = signalConnectionMarkers[line] else {
+                if let view = signalConnectionViews.removeValue(forKey: line) {
+                    view.removeFromSuperview()
+                }
+                continue
+            }
+            let tl = TextLocation(lineNumber: line, column: 0)
+            guard let loc = location(at: tl),
+                  let position = position(from: beginningOfDocument, offset: loc) else {
+                if let view = signalConnectionViews.removeValue(forKey: line) {
+                    view.removeFromSuperview()
+                }
+                continue
+            }
+
+            let rect = caretRect(for: position)
+            let markerFrame = signalConnectionMarkerFrame(for: rect)
+            if let existingView = signalConnectionViews[line] as? SignalConnectionView {
+                existingView.frame = markerFrame
+                existingView.configure(with: marker)
+            } else {
+                let markerView = SignalConnectionView(frame: markerFrame)
+                markerView.configure(with: marker)
+                underlayView.addSubview(markerView)
+                signalConnectionViews[line] = markerView
+            }
+        }
+    }
+
+    private func signalConnectionMarkerSize(for lineHeight: CGFloat) -> CGFloat {
+        max(12, min(lineMarkerSpace - 4, lineHeight - 4))
+    }
+
+    private func reservedWidthForSignalMarker(on line: Int, lineHeight: CGFloat) -> CGFloat {
+        guard signalConnectionMarkers[line] != nil else {
+            return 0
+        }
+        return signalConnectionMarkerSize(for: lineHeight) + 6
+    }
+
+    private func signalConnectionMarkerFrame(for caretRect: CGRect) -> CGRect {
+        let size = signalConnectionMarkerSize(for: caretRect.height)
+        return CGRect(
+            x: gutterWidth - size - 3,
+            y: caretRect.minY + (caretRect.height - size) / 2,
+            width: size,
+            height: size
+        )
     }
 
     class PointedRectangleView: UIView {
@@ -896,6 +1000,44 @@ class PTextView: TextView {
             UIColor.tintColor.setStroke()
             path.lineWidth = 1
             path.stroke()
+        }
+    }
+
+    class SignalConnectionView: UIView {
+        private let imageView = UIImageView()
+
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            backgroundColor = UIColor.systemOrange.withAlphaComponent(0.18)
+            layer.borderColor = UIColor.systemOrange.withAlphaComponent(0.9).cgColor
+            layer.borderWidth = 1
+            isUserInteractionEnabled = false
+            isAccessibilityElement = true
+            accessibilityTraits = .image
+
+            imageView.contentMode = .scaleAspectFit
+            imageView.tintColor = UIColor.systemOrange
+            imageView.isUserInteractionEnabled = false
+            addSubview(imageView)
+        }
+
+        required init?(coder: NSCoder) {
+            fatalError("Not implemented")
+        }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            layer.cornerRadius = min(bounds.width, bounds.height) / 2
+            imageView.frame = bounds.insetBy(dx: 2, dy: 2)
+            let symbolSize = max(8, min(bounds.width, bounds.height) * 0.58)
+            let configuration = UIImage.SymbolConfiguration(pointSize: symbolSize, weight: .semibold)
+            imageView.preferredSymbolConfiguration = configuration
+            imageView.image = UIImage(systemName: "arrow.right.square", withConfiguration: configuration)
+                ?? UIImage(systemName: "circle.fill", withConfiguration: configuration)
+        }
+
+        func configure(with marker: TextViewSignalConnectionMarker) {
+            accessibilityLabel = marker.detailText.isEmpty ? "Connected to signal" : marker.detailText
         }
     }
 }
