@@ -9,6 +9,23 @@ import GameController
 import UIKit
 @_exported import Runestone
 
+private let signalMarkerDebugEnabled: Bool = {
+    let processInfo = ProcessInfo.processInfo
+    if let env = processInfo.environment["XOGOT_DEBUG_SIGNAL_MARKERS"] {
+        return env != "0"
+    }
+#if DEBUG
+    return true
+#else
+    return processInfo.arguments.contains("--signal-markers-debug")
+#endif
+}()
+
+private func signalMarkerDebugLog(_ message: @autoclosure () -> String) {
+    guard signalMarkerDebugEnabled else { return }
+    print("[SignalMarkers] \(message())")
+}
+
 public struct TextViewSignalConnectionMarker: Identifiable, Hashable, Sendable {
     public let line: Int
     public let detailText: String
@@ -31,6 +48,8 @@ public protocol TextViewUIDelegate {
     func uitextViewLoaded (_ textView: TextView)
     /// Method invoked when the user tapped on the specified line in the gutter portion of the UI, usually used to toggle breakpoints on/off
     func uitextViewGutterTapped (_ textView: TextView, line: Int)
+    /// Method invoked when the user tapped a signal-connection marker in the gutter.
+    func uitextViewSignalConnectionMarkerTapped (_ textView: TextView, line: Int)
     /// The user tapped on "Lookup Symbol", so perform something with the symbol that was extracted (provided in `word`)
     func uitextViewRequestWordLookup (_ textView: TextView, at: UITextPosition, word: String)
     /// Invoked when the selectionchanges
@@ -46,6 +65,7 @@ public extension TextViewUIDelegate{
     func uitextViewChanged (_ textView: TextView) {}
     func uitextViewLoaded (_ textView: TextView) {}
     func uitextViewGutterTapped (_ textView: TextView, line: Int) {}
+    func uitextViewSignalConnectionMarkerTapped (_ textView: TextView, line: Int) {}
     func uitextViewRequestWordLookup (_ textView: TextView, at: UITextPosition, word: String) {}
     func uitextViewDidChangeSelection (_ textView: TextView) {}
     func uitextViewTryCompletion() -> Bool { return false }
@@ -198,6 +218,7 @@ public struct TextViewUI: UIViewRepresentable {
             ptv.setBreakpoints(new: breakpoints)
             ptv.setSignalConnectionMarkers(new: signalConnectionMarkers)
             tv.gutterTrailingPadding = ptv.lineMarkerSpace
+            signalMarkerDebugLog("Runestone updateUIView markerCount=\(signalConnectionMarkers.count) lines=\(signalConnectionMarkers.map(\.line))")
         } else {
             tv.gutterTrailingPadding = 0
         }
@@ -739,6 +760,10 @@ class PTextView: TextView {
             }
             guard sender.state == .ended else { return }
             let location = sender.location (in: self)
+            if let line = container.signalConnectionMarkerLine(at: location) {
+                coordinator.delegate.uitextViewSignalConnectionMarkerTapped(container, line: line)
+                return
+            }
             if let tapLocation = container.closestPosition(to: CGPoint(x: location.x, y: location.y+container.contentOffset.y)) {
                 let tapOffset = container.offset(from: container.beginningOfDocument, to: tapLocation)
                 if let line = container.textLocation(at: tapOffset) {
@@ -861,6 +886,7 @@ class PTextView: TextView {
         for marker in new where marker.line >= 0 {
             updatedMarkers[marker.line] = marker
         }
+        signalMarkerDebugLog("Runestone setSignalConnectionMarkers count=\(updatedMarkers.count) lines=\(updatedMarkers.keys.sorted())")
 
         let removed = Set(signalConnectionMarkers.keys).subtracting(updatedMarkers.keys)
         for line in removed {
@@ -927,6 +953,7 @@ class PTextView: TextView {
             let tl = TextLocation(lineNumber: line, column: 0)
             guard let loc = location(at: tl),
                   let position = position(from: beginningOfDocument, offset: loc) else {
+                signalMarkerDebugLog("Runestone updateSignalConnectionViews unable to resolve line=\(line) detail=\(marker.detailText)")
                 if let view = signalConnectionViews.removeValue(forKey: line) {
                     view.removeFromSuperview()
                 }
@@ -966,6 +993,15 @@ class PTextView: TextView {
             width: size,
             height: size
         )
+    }
+
+    func signalConnectionMarkerLine(at point: CGPoint) -> Int? {
+        for (line, view) in signalConnectionViews {
+            if view.frame.insetBy(dx: -6, dy: -4).contains(point) {
+                return line
+            }
+        }
+        return nil
     }
 
     class PointedRectangleView: UIView {
