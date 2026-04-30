@@ -9,17 +9,20 @@ import GameController
 import UIKit
 @_exported import Runestone
 
-private let signalMarkerDebugEnabled: Bool = {
-    let processInfo = ProcessInfo.processInfo
-    if let env = processInfo.environment["XOGOT_DEBUG_SIGNAL_MARKERS"] {
-        return env != "0"
-    }
-#if DEBUG
-    return true
-#else
-    return processInfo.arguments.contains("--signal-markers-debug")
-#endif
-}()
+private let signalMarkerDebugEnabled: Bool = false
+
+// Old, enable this code if needed:
+//{
+//    let processInfo = ProcessInfo.processInfo
+//    if let env = processInfo.environment["XOGOT_DEBUG_SIGNAL_MARKERS"] {
+//        return env != "0"
+//    }
+//#if DEBUG
+//    return true
+//#else
+//    return processInfo.arguments.contains("--signal-markers-debug")
+//#endif
+//}()
 
 private func signalMarkerDebugLog(_ message: @autoclosure () -> String) {
     guard signalMarkerDebugEnabled else { return }
