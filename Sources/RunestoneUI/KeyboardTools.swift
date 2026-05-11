@@ -213,7 +213,7 @@ public final class KeyboardToolsView: UIInputView {
         self.keyboardToolsObservable = KeyboardToolsObservable(buttons: buttons)
         super.init(frame: CGRect.zero, inputViewStyle: .keyboard)
         #if !os(visionOS)
-        self.backgroundColor = .systemBackground
+        self.backgroundColor = .clear
         self.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: isPhone ? 44 : 64 + self.safeAreaInsets.bottom)
         #endif
         setupView()
@@ -251,7 +251,7 @@ public final class KeyboardToolsView: UIInputView {
         updateUndoRedoButtonStates()
         NSLayoutConstraint.activate([
             view.leadingAnchor.constraint(equalTo: leadingAnchor),
-            view.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+            view.topAnchor.constraint(equalTo: topAnchor, constant: isPhone ? 0 : 10),
             view.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor),
             view.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
