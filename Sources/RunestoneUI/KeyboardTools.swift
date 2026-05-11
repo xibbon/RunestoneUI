@@ -214,7 +214,7 @@ public final class KeyboardToolsView: UIInputView {
         super.init(frame: CGRect.zero, inputViewStyle: .keyboard)
         #if !os(visionOS)
         self.backgroundColor = .systemBackground
-        self.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 64 + self.safeAreaInsets.bottom)
+        self.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: isPhone ? 44 : 64 + self.safeAreaInsets.bottom)
         #endif
         setupView()
         //
