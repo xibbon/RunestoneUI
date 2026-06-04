@@ -61,6 +61,11 @@ public protocol TextViewUIDelegate {
     func uitextViewTryCompletion() -> Bool
     /// Invoked when there is reason to recalculate breakpoints when lines are added or removed
     func uitextViewDidInvalidateBreakpoints(_ textView: TextView, changeLineIndex: Int, diff: Int)
+    /// Invoked when the on-screen location of the lines flagged in `breakpoints` changes, due to
+    /// scrolling, layout or text edits.  The rectangles are in the text view's viewport coordinate
+    /// space (already adjusted for the scroll position), keyed by line number, and can be used to
+    /// align external UI with the lines they reference.
+    func uitextViewLineAnchorsChanged(_ textView: TextView, anchors: [Int: CGRect])
 }
 
 /// Default protocol implementaiton, does nothing
@@ -73,6 +78,7 @@ public extension TextViewUIDelegate{
     func uitextViewDidChangeSelection (_ textView: TextView) {}
     func uitextViewTryCompletion() -> Bool { return false }
     func textViewDidInvalidateBreakpoints(_ textView: TextView, changeLineIndex: Int, diff: Int) {}
+    func uitextViewLineAnchorsChanged(_ textView: TextView, anchors: [Int: CGRect]) {}
 }
 /// SwiftUI wrapper for RuneStone's TextView
 ///
@@ -346,6 +352,7 @@ public struct TextViewUI: UIViewRepresentable {
         public func scrollViewDidScroll(_ scrollView: UIScrollView) {
             guard let pt = scrollView as? PTextView else { return }
             pt.overlayView.frame.origin.y = scrollView.contentOffset.y
+            pt.publishLineAnchors()
         }
 
         public func textViewDidChange(_ textView: TextView) {
@@ -399,6 +406,10 @@ public struct TextViewUI: UIViewRepresentable {
 
         func updateKeyboardLocation (_ textView: PTextView, _ location: CGFloat) {
             keyboardOffset.wrappedValue = location - textView.contentOffset.y
+        }
+
+        func lineAnchorsChanged(_ textView: PTextView, anchors: [Int: CGRect]) {
+            delegate.uitextViewLineAnchorsChanged(textView, anchors: anchors)
         }
 
         public func textView(_ textView: TextView, canReplaceTextIn highlightedRange: HighlightedRange) -> Bool {
@@ -675,6 +686,7 @@ public class TextViewCommands {
 protocol PTextViewDelegate: AnyObject {
     func updateKeyboardLocation(_ textView: PTextView, _ location: CGFloat)
     func lookup(_ textView: PTextView, at: UITextPosition, word: String)
+    func lineAnchorsChanged(_ textView: PTextView, anchors: [Int: CGRect])
 }
 
 /// This is a subclass of TextView, which I use to implement the breakpoint features
@@ -851,6 +863,7 @@ class PTextView: TextView {
         bringSubviewToFront(overlayView)
         updateBreakpointView()
         updateSignalConnectionViews()
+        publishLineAnchors()
     }
 
     private func updateKeyboardAnchorConstraint() {
@@ -882,6 +895,33 @@ class PTextView: TextView {
         let added = new.subtracting(breakpoints)
         self.breakpoints = new
         updateBreakpointView(for: added)
+        publishLineAnchors()
+    }
+
+    /// The viewport-relative line rectangles that were most recently reported via the delegate,
+    /// used to avoid flooding the delegate with redundant updates while scrolling.
+    var lastPublishedLineAnchors: [Int: CGRect] = [:]
+
+    /// Computes the viewport-relative rectangle of every line in `breakpoints` and reports the
+    /// set to the delegate when it differs from the last reported value.  This is invoked from
+    /// `layoutSubviews`, which UIScrollView triggers on every scroll, resize or text edit, so
+    /// external UI tracking these lines stays glued to them.
+    func publishLineAnchors() {
+        var anchors: [Int: CGRect] = [:]
+        for line in breakpoints {
+            let tl = TextLocation(lineNumber: line, column: 0)
+            guard let loc = location(at: tl),
+                  let p = position(from: beginningOfDocument, offset: loc) else {
+                continue
+            }
+            // caretRect is in content coordinates; shift by the scroll position to
+            // get the location in the viewport.
+            anchors[line] = caretRect(for: p).offsetBy(dx: 0, dy: -contentOffset.y)
+        }
+        if anchors != lastPublishedLineAnchors {
+            lastPublishedLineAnchors = anchors
+            ptDelegate?.lineAnchorsChanged(self, anchors: anchors)
+        }
     }
 
     func setSignalConnectionMarkers(new: [TextViewSignalConnectionMarker]) {
