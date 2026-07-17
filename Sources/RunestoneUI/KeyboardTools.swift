@@ -494,8 +494,6 @@ struct KeyboardToolsUI: View {
             } else {
                 buttonWidth = newButtonWidth
             }
-
-            print("total=\(globalWidth) and buttonWidth=\(buttonWidth) count=\(buttonCount)")
         }
         .padding(.horizontal, 8)
         .ifCond(UIDevice.current.userInterfaceIdiom == .phone, transform: { v in
@@ -570,6 +568,7 @@ struct KeyboardToolsButton: View {
     }
 
     static var buttonHeight: CGFloat = 35.0
+    static let longPressDuration: Double = 0.3
     @State var skipMainAction: Bool = false
 
     var body: some View {
@@ -657,6 +656,9 @@ struct KeyboardToolsButton: View {
                         DragGesture(minimumDistance: 0)
                             .onChanged({ value in
                                 self.dragLocation = value.location
+                                if buttonModel.showsOptionsInstantly, !showextraOptions {
+                                    showextraOptions = true
+                                }
                             })
                             .onEnded({ _ in
                                 // this is selected additional button action
@@ -670,10 +672,12 @@ struct KeyboardToolsButton: View {
                                 self.selected = nil
                             })
                     )
-                    .simultaneousGesture(LongPressGesture (minimumDuration: 0.6).onEnded ( { isEnded in
-                        // shows extra options on button hold
-                        showextraOptions = true
-                    }))
+                    .ifCond(!buttonModel.showsOptionsInstantly, transform: { v in
+                        v.simultaneousGesture(LongPressGesture(minimumDuration: KeyboardToolsButton.longPressDuration).onEnded({ _ in
+                            // shows extra options on button hold
+                            showextraOptions = true
+                        }))
+                    })
                     .overlay(
                         AdditionalOptionsGrid(buttons: buttonModel.additionalOptions,
                                               location: dragLocation,
@@ -716,11 +720,16 @@ struct AdditionalOptionsGrid: View {
                                                 isSelected: button.id == selected?.id,
                                                 buttonWidth: buttonWidth)
                                 .onChange(of: location) { oldValue, newValue in
-                                    guard let location else { return }
-                                    // checks weather drag gesture is over current button
+                                    guard let location else {
+                                        if selected?.id == button.id { selected = nil }
+                                        return
+                                    }
+                                    // checks whether drag gesture is over current button
                                     let targetFrame = gr.frame(in: .named("Custom"))
                                     if targetFrame.contains(location) {
                                         self.selected = button
+                                    } else if selected?.id == button.id {
+                                        self.selected = nil
                                     }
                                 }
                         }
@@ -767,6 +776,11 @@ struct KeyboardAccessoryButton: Identifiable {
     var isEnabled: Bool = true
     var doubleButton: [KeyboardAccessoryButton] = []
     let action: () ->()
+    static let instantOptionThreshold = 6
+
+    var showsOptionsInstantly: Bool {
+        additionalOptions.count >= Self.instantOptionThreshold
+    }
 }
 
 extension View {
