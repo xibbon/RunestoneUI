@@ -43,6 +43,23 @@ public struct TextViewSignalConnectionMarker: Identifiable, Hashable, Sendable {
     }
 }
 
+/// Keeps the text view of one document.  A new `TextViewUI` that has the same
+/// store uses the kept text view again, so that the undo history, the selection
+/// and the scroll position survive when SwiftUI builds the view hierarchy again
+/// (for example, when the window changes size and the app changes its layout).
+///
+/// Give each document its own store, with the `.textViewStore(_:)` modifier.
+@MainActor
+public final class TextViewUIStore {
+    public nonisolated init() {}
+
+    fileprivate var textView: PTextView?
+    fileprivate var editMenuInteraction: UIEditMenuInteraction?
+    fileprivate var language: TreeSitterLanguage?
+    /// The coordinator of the `TextViewUI` that shows the text view now.
+    fileprivate weak var owner: TextViewUI.TextViewCoordinator?
+}
+
 /// Messages that are posted by the TextViewUI
 public protocol TextViewUIDelegate {
     /// Callback that is invoked when the text changes and includes a handle to the TextView, so you can extract data as needed
@@ -115,6 +132,7 @@ public struct TextViewUI: UIViewRepresentable {
     @Environment(\.lineWrappingEnabled) var lineWrappingEnabled: Bool
     @Environment(\.characterPairTrailingComponentDeletionMode) var characterPairTrailingComponentDeletionMode: CharacterPairTrailingComponentDeletionMode
     @Environment(\.theme) var theme: Runestone.Theme
+    @Environment(\.textViewStore) var store: TextViewUIStore?
     @Binding var text: String
     @Binding var breakpoints: Set<Int>
     @Binding var keyboardOffset: CGFloat
@@ -148,12 +166,19 @@ public struct TextViewUI: UIViewRepresentable {
     }
 
     public func makeUIView(context: Context) -> TextView {
+        context.coordinator.store = store
+        if let store, let tv = store.textView {
+            return reuseUIView(tv, store: store, context: context)
+        }
         let tv = PTextView ()
         for x in tv.interactions {
             print (x)
         }
         let menu = UIEditMenuInteraction(delegate: context.coordinator)
         tv.addInteraction(menu)
+        store?.textView = tv
+        store?.editMenuInteraction = menu
+        store?.owner = context.coordinator
         tv.text = text
         tv.editorDelegate = context.coordinator
         tv.delegate = context.coordinator
@@ -206,6 +231,46 @@ public struct TextViewUI: UIViewRepresentable {
         return tv
     }
 
+    /// Connects a kept text view to the coordinator of this `TextViewUI`.
+    /// `updateUIView` applies the configuration after this returns.
+    private func reuseUIView(_ tv: PTextView, store: TextViewUIStore, context: Context) -> TextView {
+        let coordinator = context.coordinator
+        store.owner = coordinator
+        // The text view already has this language mode; do not parse again.
+        coordinator.language = store.language
+
+        // The edit menu interaction refers to the previous coordinator.
+        if let oldMenu = store.editMenuInteraction {
+            tv.removeInteraction(oldMenu)
+        }
+        let menu = UIEditMenuInteraction(delegate: coordinator)
+        tv.addInteraction(menu)
+        store.editMenuInteraction = menu
+
+        tv.editorDelegate = coordinator
+        tv.delegate = coordinator
+        tv.ptDelegate = coordinator
+        tv.includeLookupSymbol = coordinator.includeLookupSymbol
+        #if os(iOS)
+            // The previous view can have removed the observers of the tools.
+            if let oldTools = tv.getUnderlyingInputAccessoryView() as? KeyboardToolsView {
+                oldTools.cleanup()
+            }
+            tv.inputAccessoryView = GCKeyboard.coalesced == nil ? KeyboardToolsView(textView: tv) : nil
+            // UIKit continues to show the old accessory view until the input
+            // views reload.  Do this after SwiftUI moves the text view.
+            DispatchQueue.main.async { [weak tv] in
+                guard let tv, tv.isFirstResponder else {
+                    return
+                }
+                tv.reloadInputViews()
+            }
+        #endif
+
+        delegate.uitextViewLoaded(tv)
+        return tv
+    }
+
     public func makeCoordinator() -> TextViewCoordinator {
         return TextViewCoordinator(text: $text, keyboardOffset: $keyboardOffset, delegate: delegate, commands: commands, includeLookupSymbol: includeLookupSymbol) { isConnected in
             self.showInputAccessoryView = !isConnected
@@ -218,6 +283,7 @@ public struct TextViewUI: UIViewRepresentable {
             if language !== coordinator.language {
                 tv.setLanguageMode(TreeSitterLanguageMode (language: language))
                 coordinator.language = language
+                store?.language = language
             }
         }
         coordinator.lineHeightMultiplier = lineHeightMultiplier
@@ -286,6 +352,10 @@ public struct TextViewUI: UIViewRepresentable {
     }
 
     public static func dismantleUIView(_ uiView: TextView, coordinator: TextViewCoordinator) {
+        // A newer TextViewUI shows this text view now; leave it as it is.
+        if let store = coordinator.store, store.textView === uiView, store.owner !== coordinator {
+            return
+        }
 #if !os(visionOS)
         if let toolsInputView = uiView.getUnderlyingInputAccessoryView() as? KeyboardToolsView {
             toolsInputView.cleanup()
@@ -313,6 +383,8 @@ public struct TextViewUI: UIViewRepresentable {
         var indentStrategy: IndentStrategy = .tab(length: 4)
         var characterPairTrailingComponentDeletionMode: CharacterPairTrailingComponentDeletionMode = .immediatelyFollowingLeadingComponent
         var updateKeyboardConnection: (Bool) -> ()
+        /// The store of the text view, if the text view is kept.
+        var store: TextViewUIStore?
 
         init (text: Binding<String>, keyboardOffset: Binding<CGFloat>, delegate: TextViewUIDelegate, commands: TextViewCommands, includeLookupSymbol: Bool, updateKeyboardConnection: @escaping (Bool) -> ()) {
             self.text = text
@@ -463,6 +535,7 @@ extension EnvironmentValues {
     @Entry public var showLineNumbers: Bool = true
     @Entry public var includeLookupSymbol: Bool = false
     @Entry public var highlightLine: Int? = nil
+    @Entry public var textViewStore: TextViewUIStore? = nil
     @Entry public var lineWrappingEnabled: Bool = true
     @Entry public var characterPairs: [CharacterPair] = []
     @Entry public var findInteraction: Bool = true
@@ -503,6 +576,12 @@ extension View {
     /// If not nil, highlights this line in the editor
     public func highlightLine (_ value: Int?) -> some View {
         environment(\.highlightLine, value)
+    }
+
+    /// Keeps the text view in `store`, so that a new view for the same
+    /// document keeps the undo history, the selection and the scroll position.
+    public func textViewStore (_ store: TextViewUIStore?) -> some View {
+        environment(\.textViewStore, store)
     }
 
     /// Controls whether the "Lookup Symbol" menu is added to the text editor
