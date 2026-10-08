@@ -7,6 +7,7 @@
 import SwiftUI
 import GameController
 import UIKit
+import os
 @_exported import Runestone
 
 private let signalMarkerDebugEnabled: Bool = false
@@ -42,6 +43,10 @@ public struct TextViewSignalConnectionMarker: Identifiable, Hashable, Sendable {
         line
     }
 }
+
+#if DEBUG
+let textViewUILog = Logger(subsystem: "com.xibbon.xogot", category: "TextViewUI")
+#endif
 
 /// Keeps the text view of one document.  A new `TextViewUI` that has the same
 /// store uses the kept text view again, so that the undo history, the selection
@@ -170,6 +175,9 @@ public struct TextViewUI: UIViewRepresentable {
         if let store, let tv = store.textView {
             return reuseUIView(tv, store: store, context: context)
         }
+#if DEBUG
+        textViewUILog.info("[TextViewUI] new view")
+#endif
         let tv = PTextView ()
         for x in tv.interactions {
             print (x)
@@ -234,6 +242,16 @@ public struct TextViewUI: UIViewRepresentable {
     /// Connects a kept text view to the coordinator of this `TextViewUI`.
     /// `updateUIView` applies the configuration after this returns.
     private func reuseUIView(_ tv: PTextView, store: TextViewUIStore, context: Context) -> TextView {
+#if DEBUG
+        // A layout change rebuilds the view tree.  This line names the view that
+        // came back, which is what keeps the undo history, the caret and the
+        // scroll position; a "new view" line after a layout change is a miss.
+        textViewUILog.info("""
+            [TextViewUI] reused view=\(UInt(bitPattern: ObjectIdentifier(tv).hashValue), privacy: .public) \
+            undo=\(tv.undoManager?.canUndo ?? false, privacy: .public) \
+            chars=\(tv.text.count, privacy: .public)
+            """)
+#endif
         let coordinator = context.coordinator
         store.owner = coordinator
         // The text view already has this language mode; do not parse again.
