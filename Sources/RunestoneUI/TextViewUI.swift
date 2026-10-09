@@ -56,13 +56,43 @@ let textViewUILog = Logger(subsystem: "com.xibbon.xogot", category: "TextViewUI"
 /// Give each document its own store, with the `.textViewStore(_:)` modifier.
 @MainActor
 public final class TextViewUIStore {
-    public nonisolated init() {}
+    public nonisolated init() {
+        // A kept text view costs memory for as long as its document is open,
+        // and a project can have many open.  Give the ones that nothing is
+        // showing back when the system asks.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(releaseIfNotOnScreen),
+            name: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
 
     fileprivate var textView: PTextView?
     fileprivate var editMenuInteraction: UIEditMenuInteraction?
     fileprivate var language: TreeSitterLanguage?
     /// The coordinator of the `TextViewUI` that shows the text view now.
     fileprivate weak var owner: TextViewUI.TextViewCoordinator?
+
+    /// Drops the kept text view when no view hierarchy holds it.
+    ///
+    /// A view that is still mounted keeps its undo history, its caret and its
+    /// scroll position: that is what the store is for.  One that nothing shows
+    /// would be rebuilt from the document anyway, so it is memory the app can
+    /// return under pressure.
+    @objc private func releaseIfNotOnScreen() {
+        guard let view = textView, view.superview == nil else {
+            return
+        }
+        textView = nil
+        editMenuInteraction = nil
+        language = nil
+        owner = nil
+    }
 }
 
 /// Messages that are posted by the TextViewUI
