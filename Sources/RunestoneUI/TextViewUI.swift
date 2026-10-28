@@ -859,7 +859,7 @@ class PTextView: TextView {
                 // Need to callout and determine if this is:
                 // * Needs a lookup option
 
-                let action = UIAction(title: "Lookup Symbol") { action in
+                let action = UIAction(title: String(localized: "Lookup Symbol")) { action in
                     self.ptDelegate?.lookup(self, at: selection.start, word: word)
                 }
                 builder.replace(menu: .lookup, with: UIMenu(title: "", image: nil, identifier: nil, options: [.displayInline], children: [action]))
